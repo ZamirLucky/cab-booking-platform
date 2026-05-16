@@ -1,0 +1,8 @@
+{
+  "_comment": "TODO: Replace with real exported Postman collection once routes are implemented",
+  "info": {
+    "name": "Cab Booking Platform",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": []
+}

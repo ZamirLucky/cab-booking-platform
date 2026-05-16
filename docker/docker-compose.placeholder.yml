@@ -1,0 +1,33 @@
+# docker-compose.placeholder.yml
+# TODO: Complete during deployment phase
+
+version: '3.8'
+
+services:
+  # TODO: gateway-service
+  #   build: ../services/gateway-service
+  #   ports: ["3000:3000"]
+
+  # TODO: customer-service
+  #   build: ../services/customer-service
+  #   ports: ["3001:3001"]
+
+  # TODO: booking-service
+  #   build: ../services/booking-service
+  #   ports: ["3002:3002"]
+
+  # TODO: payment-service
+  #   build: ../services/payment-service
+  #   ports: ["3003:3003"]
+
+  # TODO: fare-estimation-service
+  #   build: ../services/fare-estimation-service
+  #   ports: ["3004:3004"]
+
+  # TODO: location-service
+  #   build: ../services/location-service
+  #   ports: ["3005:3005"]
+
+  # TODO: web-app
+  #   build: ../web-app
+  #   ports: ["8080:8080"]

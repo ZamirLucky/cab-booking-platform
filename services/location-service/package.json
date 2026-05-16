@@ -1,0 +1,12 @@
+{
+  "name": "location-service",
+  "version": "1.0.0",
+  "description": "Favourite locations service for the Cab Booking Platform",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js"
+  },
+  "dependencies": {},
+  "devDependencies": {}
+}
