@@ -7,6 +7,15 @@
     "start": "node src/index.js",
     "dev": "nodemon src/index.js"
   },
-  "dependencies": {},
-  "devDependencies": {}
+  "dependencies": {
+    "axios": "^1.16.1",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.3",
+    "pg": "^8.20.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.14"
+  }
 }
