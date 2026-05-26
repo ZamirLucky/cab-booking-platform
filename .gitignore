@@ -9,3 +9,8 @@ coverage/
 npm-debug.log*
 .vscode/settings.json
 .claude/
+
+
+CLAUDE.md
+README.md
+docs/
