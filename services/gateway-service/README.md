@@ -4,7 +4,7 @@ The API Gateway is the single entry point for all client requests from the web-a
 
 ## Status
 
-Phase 3 — Customer Service forwarding: implemented and tested locally.
+Phase 4 — Customer Service and Booking Service forwarding: implemented and tested locally.
 
 ## Local Port
 
@@ -57,7 +57,7 @@ The Gateway is the first service the frontend contacts. Verifying the token at t
 
 Cloud Run gives each deployed service its own public HTTPS URL. A caller who knows the direct URL of a microservice could bypass the Gateway entirely. Each microservice runs its own `requireAuth` so protected routes remain secure regardless of how they are called. This is documented in DECISION_LOG D-007.
 
-## Implemented Routes (Phase 3)
+## Implemented Routes
 
 ### Public routes
 
@@ -67,7 +67,7 @@ Cloud Run gives each deployed service its own public HTTPS URL. A caller who kno
 | `POST` | `/api/customers/register` | Customer Service `/register` |
 | `POST` | `/api/customers/login` | Customer Service `/login` |
 
-### Protected routes (require `Authorization: Bearer <token>`)
+### Protected routes — Customer Service (require `Authorization: Bearer <token>`)
 
 | Method | Gateway route | Forwards to |
 |---|---|---|
@@ -75,11 +75,22 @@ Cloud Run gives each deployed service its own public HTTPS URL. A caller who kno
 | `GET` | `/api/customers/notifications` | Customer Service `/notifications` |
 | `PATCH` | `/api/customers/notifications/:id/read` | Customer Service `/notifications/:id/read` |
 
+### Protected routes — Booking Service (require `Authorization: Bearer <token>`)
+
+| Method | Gateway route | Forwards to |
+|---|---|---|
+| `POST` | `/api/bookings` | Booking Service `/bookings` |
+| `GET` | `/api/bookings/current` | Booking Service `/bookings/current` |
+| `GET` | `/api/bookings/past` | Booking Service `/bookings/past` |
+| `GET` | `/api/bookings/:id` | Booking Service `/bookings/:id` |
+| `PATCH` | `/api/bookings/:id/status` | Booking Service `/bookings/:id/status` |
+
+**Route path note:** The booking router is mounted at `/api/bookings`. Route definitions use only the suffix after the mount point (`/`, `/current`, `/:id`, etc.) — not the full path. Repeating `/bookings` in the route definition would produce a double-prefix path like `POST /api/bookings/bookings` and cause 404 errors.
+
 ## Planned Routes (future phases)
 
 | Prefix | Forwards to |
 |---|---|
-| `/api/bookings` | Booking Service |
 | `/api/payments` | Payment Service |
 | `/api/fare` | Fare Estimation Service |
 | `/api/locations` | Location Service |
@@ -121,6 +132,14 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 
 The script runs the 9-request forwarding suite. If all pass, it pauses and asks whether to run the service-down test. Answer `Y` after stopping Customer Service (Gateway must stay running).
 
+**Run Booking Service tests (Phase 4):**
+
+```powershell
+.\scripts\run-booking-newman-tests.ps1
+```
+
+All three services must be running (Customer on 3001, Booking on 3002, Gateway on 4000). The script runs the 12-request normal flow, then optionally the service-down test and cab-ready event test.
+
 **Run a single collection manually:**
 
 ```powershell
@@ -156,7 +175,7 @@ services/gateway-service/
 │   │   └── forwardAuthHeader.js        copies Authorization header to req.authHeader
 │   └── routes/
 │       ├── customerRoutes.js           forwards /api/customers/* to customer-service
-│       ├── bookingRoutes.js            stub (to be implemented in phase 4)
+│       ├── bookingRoutes.js            forwards /api/bookings/* to booking-service (phase 4)
 │       ├── paymentRoutes.js            stub (to be implemented)
 │       ├── fareRoutes.js               stub (to be implemented)
 │       └── locationRoutes.js           stub (to be implemented)

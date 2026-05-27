@@ -1,0 +1,108 @@
+{
+  "info": {
+    "name": "Cab Booking - Cab Ready Event Test",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Create Booking For Cab Ready Event",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"start_location\": \"Valletta\",\n  \"end_location\": \"Sliema\",\n  \"booking_datetime\": \"2026-06-01T10:00:00.000Z\",\n  \"passengers\": 1,\n  \"cab_type\": \"Economic\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{gatewayUrl}}/api/bookings",
+          "host": [
+            "{{gatewayUrl}}"
+          ],
+          "path": [
+            "api",
+            "bookings"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const json = pm.response.json();",
+              "pm.test('Cab-ready setup booking returns 201', () => pm.response.to.have.status(201));",
+              "const bookingId = json.bookingId || json.id || (json.booking && json.booking.id);",
+              "pm.environment.set('cabReadyBookingId', bookingId);",
+              "console.log('Cab-ready bookingId:', bookingId);",
+              "console.log('Wait 3 minutes before running the next request/collection check.');"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Check Cab Ready Notification",
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [],
+        "url": {
+          "raw": "{{gatewayUrl}}/api/customers/notifications",
+          "host": [
+            "{{gatewayUrl}}"
+          ],
+          "path": [
+            "api",
+            "customers",
+            "notifications"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const json = pm.response.json();",
+              "const notifications = json.notifications || [];",
+              "pm.test('Notifications returns 200', () => pm.response.to.have.status(200));",
+              "pm.test('Cab-ready notification exists', () => { const found = notifications.some(n => n.type === 'cab_ready'); pm.expect(found).to.eql(true); });",
+              "console.log('Notification count:', notifications.length);"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

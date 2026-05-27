@@ -2,6 +2,19 @@
 
 This folder stores Postman collections, the shared environment file, and Newman-based testing documentation for the Cab Booking Platform API.
 
+## Quick Start — Run Booking Service Tests with Newman
+
+Newman is the command-line runner for Postman collections.
+
+**Prerequisites:** Customer Service on port 3001, Booking Service on port 3002, Gateway on port 4000, Newman installed globally.
+
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+.\scripts\run-booking-newman-tests.ps1
+```
+
+The script registers a fresh test user, runs the 12-request booking normal flow, and prompts for the optional service-down and cab-ready event tests.
+
 ## Quick Start — Run Gateway Tests with Newman
 
 Newman is the command-line runner for Postman collections. It runs all requests in sequence automatically and prints pass/fail results.
@@ -26,10 +39,13 @@ The script runs the full forwarding suite first. If all tests pass, it pauses an
 | Collection file | Purpose | Run with |
 |---|---|---|
 | `cab-booking-customer-service.postman_collection.json` | Direct Customer Service tests (port 3001) | Postman UI or Newman manually |
-| `cab-booking-gateway-customer-forwarding.postman_collection.json` | Gateway forwarding tests (port 4000) — normal flow | `run-gateway-newman-tests.ps1` |
+| `cab-booking-gateway-customer-forwarding.postman_collection.json` | Gateway forwarding tests — Customer Service normal flow (9 requests) | `run-gateway-newman-tests.ps1` |
 | `cab-booking-gateway-failure.postman_collection.json` | Gateway service-down test — requires stopping Customer Service first | `run-gateway-newman-tests.ps1` (prompted) |
+| `cab-booking-booking-service.postman_collection.json` | Booking Service normal flow via Gateway (12 requests) | `run-booking-newman-tests.ps1` |
+| `cab-booking-booking-failure.postman_collection.json` | Booking Service service-down test — requires stopping Booking Service | `run-booking-newman-tests.ps1` (prompted) |
+| `cab-booking-cab-ready-event.postman_collection.json` | Cab-ready event test — creates a booking, waits 3 minutes, checks notification | `run-booking-newman-tests.ps1` (prompted) |
 
-Splitting the service-down test into its own collection is necessary because Newman cannot stop or start external processes mid-run. The PowerShell script handles the pause and user confirmation between the two collections.
+Splitting the service-down and cab-ready tests into separate collections is necessary because Newman cannot stop external processes or wait interactively mid-run. The PowerShell script handles pauses and user confirmations between collections.
 
 ## Gateway vs Direct Service URLs
 
@@ -57,10 +73,13 @@ The exported collections and environment provide evidence that the API was teste
 
 ```text
 postman/
-├── cab-booking-customer-service.postman_collection.json          Step 2 — direct Customer Service tests
-├── cab-booking-gateway-customer-forwarding.postman_collection.json  Step 3 — Gateway forwarding tests (normal)
-├── cab-booking-gateway-failure.postman_collection.json           Step 3 — Gateway service-down test (manual)
-├── cab-booking-local.postman_environment.json                    shared environment for all collections
+├── cab-booking-customer-service.postman_collection.json               Step 2 — direct Customer Service tests
+├── cab-booking-gateway-customer-forwarding.postman_collection.json    Step 3 — Gateway forwarding, Customer normal flow
+├── cab-booking-gateway-failure.postman_collection.json                Step 3 — Gateway service-down test
+├── cab-booking-booking-service.postman_collection.json                Step 4 — Booking Service normal flow (12 requests)
+├── cab-booking-booking-failure.postman_collection.json                Step 4 — Booking Service service-down test
+├── cab-booking-cab-ready-event.postman_collection.json                Step 4 — cab-ready delayed event test
+├── cab-booking-local.postman_environment.json                         shared environment for all collections
 └── README.md
 ```
 
@@ -78,12 +97,15 @@ Variables:
 |---|---|---|
 | `gatewayUrl` | `http://localhost:4000` | Gateway local base URL — use for all integration tests |
 | `customerServiceUrl` | `http://localhost:3001` | Customer Service direct URL — for isolated service-level testing only |
+| `bookingServiceUrl` | `http://localhost:3002` | Booking Service direct URL — health check only |
 | `baseUrl` | `http://localhost:3001` | Legacy — used by Step 2 Customer Service tests |
-| `testEmail` | `testuser001@example.com` | test user email |
+| `testEmail` | generated per run | auto-generated unique email (pre-request script) |
 | `testPassword` | `password123` | test user password |
 | `token` | empty until login | JWT from login response |
 | `userId` | empty until register/login | current test user's ID |
 | `notificationId` | empty until notification creation | current test notification ID |
+| `bookingId` | empty until booking creation | created booking ID for subsequent requests |
+| `cabReadyBookingId` | empty until cab-ready test | booking ID used for cab-ready event test |
 
 ## Important Security Rule
 
@@ -149,6 +171,50 @@ Service-down test. Run by `run-gateway-newman-tests.ps1` after prompting you to 
 Gateway Failure Tests
 └── 01 - Service Down Test   ← expects 503 from Gateway, not a crash
 ```
+
+### cab-booking-booking-service.postman_collection.json
+
+Booking Service tests via Gateway (port 4000). Run automatically via `run-booking-newman-tests.ps1`.
+
+Folder `00` registers a fresh test user per run and logs in to get a JWT. Folder `01` runs 10 booking tests using that token.
+
+```text
+00 - Setup - Register and Login via Gateway
+├── 00a - Register Test User     ← unique email generated per run, registered via Gateway
+└── 00b - Login and Save Token   ← token and userId saved to environment
+
+01 - Booking Service - Normal Flow
+├── 01 - Booking Health Direct            ← GET bookingServiceUrl/health → 200
+├── 02 - Create Booking Without Token     ← expects 401 from Gateway requireAuth
+├── 03 - Create Booking Valid             ← expects 201; saves bookingId to environment
+├── 04 - Create Booking Invalid Cab Type  ← cab_type "Luxury" expects 400
+├── 05 - Create Booking Passengers OOR   ← passengers = 9 expects 400
+├── 06 - View Current Bookings            ← expects 200 array; created booking must be present
+├── 07 - View Past Bookings Before        ← expects 200 array (booking not yet completed)
+├── 08 - Get Single Booking               ← GET /api/bookings/{{bookingId}} expects 200
+├── 09 - Update Status To Completed       ← PATCH /api/bookings/{{bookingId}}/status → 200
+└── 10 - View Past Bookings After         ← expects 200; completed booking must now be present
+```
+
+### cab-booking-booking-failure.postman_collection.json
+
+Service-down test. Run by `run-booking-newman-tests.ps1` after prompting to stop Booking Service.
+
+```text
+Booking Failure Tests
+└── Booking Service Down - Current Bookings   ← expects 503 from Gateway, not a crash
+```
+
+### cab-booking-cab-ready-event.postman_collection.json
+
+Cab-ready delayed event test. Run by `run-booking-newman-tests.ps1` using the exported environment (token already set from normal flow).
+
+```text
+Create Booking For Cab Ready Event    ← POST /api/bookings → 201; saves cabReadyBookingId
+Check Cab Ready Notification          ← GET /api/customers/notifications; asserts type='cab_ready' present
+```
+
+The script waits 190 seconds between these two requests to allow the 3-minute setTimeout to fire.
 
 ## Gateway Forwarding Tests — Request Details (Step 3)
 

@@ -1,0 +1,50 @@
+{
+  "info": {
+    "name": "Cab Booking - Booking Service Failure Tests",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Booking Service Down - Current Bookings",
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [],
+        "url": {
+          "raw": "{{gatewayUrl}}/api/bookings/current",
+          "host": [
+            "{{gatewayUrl}}"
+          ],
+          "path": [
+            "api",
+            "bookings",
+            "current"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const json = pm.response.json();",
+              "pm.test('Booking service down returns 503', () => pm.response.to.have.status(503));",
+              "pm.test('Gateway returns service unavailable message', () => pm.expect(json.error).to.eql('Service temporarily unavailable'));",
+              "console.log('Service down response:', pm.response.text());"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

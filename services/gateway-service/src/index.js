@@ -7,6 +7,7 @@ const express = require('express');
 const cors = require('cors');
 
 const customerRoutes = require('./routes/customerRoutes');
+const bookingRoutes = require('./routes/bookingRoutes');
 const errorHandler = require('./middleware/errorHandler');
 
 const app = express();
@@ -21,7 +22,10 @@ app.get('/health', (req, res) => {
 // Customer service routes
 app.use('/api/customers', customerRoutes);
 
-// Error handler
+// Booking service routes
+app.use('/api/bookings', bookingRoutes);
+
+// Error handler - must be registered after all routes
 app.use(errorHandler);
 
 const PORT = process.env.PORT || 4000;
