@@ -1,0 +1,303 @@
+{
+  "info": {
+    "name": "Cab Booking - Gateway Customer Forwarding Tests",
+    "description": "Normal local Gateway forwarding tests for Customer Service routes. Requires Customer Service on 3001 and Gateway on 4000.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Gateway Customer Forwarding - Normal",
+      "item": [
+        {
+          "name": "01 - Gateway Health Check",
+          "request": {
+            "method": "GET",
+            "url": "{{gatewayUrl}}/health"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Gateway health returns 200', function () { pm.response.to.have.status(200); });",
+                  "const json = pm.response.json();",
+                  "pm.test('Service name is gateway-service', function () { pm.expect(json.service).to.equal('gateway-service'); });",
+                  "console.log('Gateway health:', json.status, json.service);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "02 - Register via Gateway",
+          "request": {
+            "method": "POST",
+            "url": "{{gatewayUrl}}/api/customers/register",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"first_name\": \"Gateway\",\n  \"surname\": \"Test\",\n  \"email\": \"{{testEmail}}\",\n  \"password\": \"{{testPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const email = 'gatewaytest+' + Date.now() + '@example.com';",
+                  "pm.environment.set('testEmail', email);",
+                  "pm.environment.set('token', '');",
+                  "pm.environment.set('userId', '');",
+                  "pm.environment.set('notificationId', '');",
+                  "console.log('Generated testEmail:', email);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Register via Gateway returns 201', function () { pm.response.to.have.status(201); });",
+                  "const json = pm.response.json();",
+                  "pm.test('User ID exists', function () { pm.expect(json.userId).to.exist; });",
+                  "pm.environment.set('userId', json.userId);",
+                  "console.log('Registered userId:', json.userId);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "03 - Login via Gateway",
+          "request": {
+            "method": "POST",
+            "url": "{{gatewayUrl}}/api/customers/login",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{testEmail}}\",\n  \"password\": \"{{testPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Login via Gateway returns 200', function () { pm.response.to.have.status(200); });",
+                  "const json = pm.response.json();",
+                  "pm.test('Token exists', function () { pm.expect(json.token).to.exist; });",
+                  "pm.test('User ID exists', function () { pm.expect(json.userId).to.exist; });",
+                  "pm.environment.set('token', json.token);",
+                  "pm.environment.set('userId', json.userId);",
+                  "console.log('Logged in email:', json.email);",
+                  "console.log('Logged in userId:', json.userId);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "04 - Account Without Token (Gateway rejects)",
+          "request": {
+            "method": "GET",
+            "url": "{{gatewayUrl}}/api/customers/account"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('No token returns 401', function () { pm.response.to.have.status(401); });",
+                  "const json = pm.response.json();",
+                  "pm.test('Error message present', function () { pm.expect(json.error).to.exist; });",
+                  "console.log('No-token error:', json.error);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "05 - Account With Token via Gateway",
+          "request": {
+            "method": "GET",
+            "url": "{{gatewayUrl}}/api/customers/account",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Account returns 200', function () { pm.response.to.have.status(200); });",
+                  "const json = pm.response.json();",
+                  "pm.test('password_hash not in response', function () { pm.expect(json.password_hash).to.be.undefined; });",
+                  "pm.test('id present', function () { pm.expect(json.id).to.exist; });",
+                  "console.log('Account email:', json.email);",
+                  "console.log('Account id:', json.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "06 - Create Notification Setup Direct",
+          "request": {
+            "method": "POST",
+            "url": "{{customerServiceUrl}}/notifications",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": \"{{userId}}\",\n  \"type\": \"system\",\n  \"title\": \"Gateway Newman Test\",\n  \"message\": \"Notification created by Newman for Gateway forwarding test\",\n  \"payload\": {\n    \"source\": \"newman\",\n    \"phase\": \"3\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "description": "Test fixture for Gateway notification tests. This calls the Customer Service internal notification endpoint directly because the Gateway does not expose notification creation.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Setup notification created 201', function () { pm.response.to.have.status(201); });",
+                  "const json = pm.response.json();",
+                  "pm.test('Notification ID exists', function () { pm.expect(json.notificationId).to.exist; });",
+                  "pm.environment.set('notificationId', json.notificationId);",
+                  "console.log('Created notificationId:', json.notificationId);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "07 - Notifications via Gateway",
+          "request": {
+            "method": "GET",
+            "url": "{{gatewayUrl}}/api/customers/notifications",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Notifications returns 200', function () { pm.response.to.have.status(200); });",
+                  "const json = pm.response.json();",
+                  "pm.test('Notifications array exists', function () { pm.expect(json.notifications).to.be.an('array'); });",
+                  "pm.test('At least one notification exists', function () { pm.expect(json.notifications.length).to.be.greaterThan(0); });",
+                  "const target = json.notifications.find(n => n.id === pm.environment.get('notificationId')) || json.notifications[0];",
+                  "pm.environment.set('notificationId', target.id);",
+                  "console.log('Notification count:', json.notifications.length);",
+                  "console.log('Using notificationId:', target.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "08 - Mark Notification Read via Gateway",
+          "request": {
+            "method": "PATCH",
+            "url": "{{gatewayUrl}}/api/customers/notifications/{{notificationId}}/read",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Mark read returns 200', function () { pm.response.to.have.status(200); });",
+                  "const json = pm.response.json();",
+                  "pm.test('Mark-read message returned', function () { pm.expect(json.message).to.equal('Notification marked as read'); });",
+                  "console.log('Mark-read response:', json.message);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "09 - Verify Notification Read via Gateway",
+          "request": {
+            "method": "GET",
+            "url": "{{gatewayUrl}}/api/customers/notifications",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Verify notifications returns 200', function () { pm.response.to.have.status(200); });",
+                  "const json = pm.response.json();",
+                  "const id = pm.environment.get('notificationId');",
+                  "const target = json.notifications.find(n => n.id === id);",
+                  "pm.test('Marked notification exists', function () { pm.expect(target).to.exist; });",
+                  "pm.test('Notification is read', function () { pm.expect(target.is_read).to.equal(true); });",
+                  "pm.test('read_at is set', function () { pm.expect(target.read_at).to.exist; });",
+                  "console.log('Verified read notification:', id, 'is_read=', target && target.is_read);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

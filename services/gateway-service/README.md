@@ -96,24 +96,53 @@ All route handlers use a shared `handleAxiosError` helper:
 
 The `err.response` check is required. Without it, a 404 or 401 from a downstream service would be treated as an unexpected error and returned to the client as a 500.
 
-## Test Instructions (Postman)
+## Running Tests — Newman (fast, repeatable)
 
-Use the Postman environment `Cab Booking Local` with `gatewayUrl = http://localhost:4000`.
+Newman is the command-line Postman runner. It executes all requests in sequence automatically.
 
-Both Customer Service and Gateway must be running before testing.
+**Start both services first:**
 
-Run tests in this order:
+```powershell
+# Terminal 1
+cd services\customer-service
+npm run dev
+
+# Terminal 2
+cd services\gateway-service
+npm run dev
+```
+
+**Allow scripts and run:**
+
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+.\scripts\run-gateway-newman-tests.ps1
+```
+
+The script runs the 9-request forwarding suite. If all pass, it pauses and asks whether to run the service-down test. Answer `Y` after stopping Customer Service (Gateway must stay running).
+
+**Run a single collection manually:**
+
+```powershell
+newman run postman/cab-booking-gateway-customer-forwarding.postman_collection.json `
+  -e postman/cab-booking-local.postman_environment.json `
+  --reporters cli --verbose
+```
+
+## Test Instructions (Postman UI — manual alternative)
+
+Use environment `Cab Booking Local` with `gatewayUrl = http://localhost:4000`. Both services must be running.
 
 1. `GET {{gatewayUrl}}/health` → `200 { "status": "ok", "service": "gateway-service" }`
-2. `POST {{gatewayUrl}}/api/customers/register` (new email) → `201`
-3. `POST {{gatewayUrl}}/api/customers/login` → `200` with `token` — save token to environment
-4. `GET {{gatewayUrl}}/api/customers/account` (no Authorization header) → `401` — rejected by Gateway's own middleware; Customer Service never receives this request
-5. `GET {{gatewayUrl}}/api/customers/account` (with `Authorization: Bearer {{token}}`) → `200`
+2. `POST {{gatewayUrl}}/api/customers/register` → `201`
+3. `POST {{gatewayUrl}}/api/customers/login` → `200` with `token`
+4. `GET {{gatewayUrl}}/api/customers/account` (no Authorization) → `401` — Gateway's own `requireAuth` rejects; Customer Service never receives this
+5. `GET {{gatewayUrl}}/api/customers/account` (with token) → `200`
 6. `GET {{gatewayUrl}}/api/customers/notifications` (with token) → `200`
 7. `PATCH {{gatewayUrl}}/api/customers/notifications/:id/read` (with token) → `200`
-8. Stop Customer Service. `GET {{gatewayUrl}}/api/customers/account` → `503 { "error": "Service temporarily unavailable" }` — Gateway must not crash
+8. Stop Customer Service. `GET {{gatewayUrl}}/api/customers/account` → `503` — Gateway must not crash
 
-Test 4 confirms the Gateway's own `requireAuth` is working. Test 8 confirms the `ECONNREFUSED` handling in `handleAxiosError`.
+Test 4 confirms Gateway-level auth enforcement. Test 8 confirms the `ECONNREFUSED` handling in `handleAxiosError`.
 
 ## Files
 
