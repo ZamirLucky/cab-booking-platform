@@ -6,9 +6,12 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 
-const customerRoutes = require('./routes/customerRoutes');
-const bookingRoutes = require('./routes/bookingRoutes');
-const errorHandler = require('./middleware/errorHandler');
+const customerRoutes  = require('./routes/customerRoutes');
+const bookingRoutes   = require('./routes/bookingRoutes');
+const paymentRoutes   = require('./routes/paymentRoutes');
+const fareRoutes      = require('./routes/fareRoutes');
+const locationRoutes  = require('./routes/locationRoutes');
+const errorHandler    = require('./middleware/errorHandler');
 
 const app = express();
 app.use(cors());
@@ -24,6 +27,15 @@ app.use('/api/customers', customerRoutes);
 
 // Booking service routes
 app.use('/api/bookings', bookingRoutes);
+
+// Payment service routes
+app.use('/api/payments', paymentRoutes);
+
+// Fare estimation service routes
+app.use('/api/fare', fareRoutes);
+
+// Location service routes
+app.use('/api/locations', locationRoutes);
 
 // Error handler - must be registered after all routes
 app.use(errorHandler);

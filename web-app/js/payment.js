@@ -10,11 +10,14 @@ function renderBreakdown(breakdown) {
     return '<p class="text-muted mb-0">No breakdown available.</p>';
   }
   const rows = Object.entries(breakdown)
-    .map(([k, v]) =>
-      `<tr>
+    .map(([k, v]) => {
+      // Highlight total/price row with the breakdown-total CSS class
+      const isTotal = /total|price/i.test(k);
+      return `<tr class="${isTotal ? 'breakdown-total' : ''}">
         <td class="text-muted text-capitalize">${k.replace(/_/g, ' ')}</td>
-        <td class="fw-semibold text-end">${v}</td>
-      </tr>`)
+        <td class="text-end">${v}</td>
+      </tr>`;
+    })
     .join('');
   return `<table class="table table-sm table-borderless mb-0">${rows}</table>`;
 }

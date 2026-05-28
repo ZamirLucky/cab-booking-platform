@@ -10,24 +10,23 @@
 </head>
 <body class="bg-light">
 
-  <!-- Navbar -->
-  <nav class="navbar navbar-expand-md navbar-dark bg-dark">
-    <div class="container">
-      <a class="navbar-brand fw-bold" href="dashboard.html">🚖 Cab Booking</a>
+  <!-- Navbar (shared across all protected pages) -->
+  <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
+    <div class="container-fluid">
+      <a class="navbar-brand" href="dashboard.html">🚕 Cab Booking</a>
       <button class="navbar-toggler" type="button"
               data-bs-toggle="collapse" data-bs-target="#main-nav">
         <span class="navbar-toggler-icon"></span>
       </button>
       <div class="collapse navbar-collapse" id="main-nav">
-        <ul class="navbar-nav ms-auto align-items-md-center gap-md-2">
+        <!-- Nav links left-aligned (me-auto); logout right -->
+        <ul class="navbar-nav me-auto">
           <li class="nav-item"><a class="nav-link" href="bookings.html">Bookings</a></li>
+          <li class="nav-item"><a class="nav-link active" href="payment.html">Payment</a></li>
           <li class="nav-item"><a class="nav-link" href="locations.html">Locations</a></li>
-          <li class="nav-item"><a class="nav-link" href="notifications.html">Notifications</a></li>
-          <li class="nav-item"><a class="nav-link active" href="payment.html">Payments</a></li>
-          <li class="nav-item">
-            <button class="btn btn-outline-light btn-sm" onclick="handleLogout()">Logout</button>
-          </li>
+          <li class="nav-item"><a class="nav-link" href="notifications.html">Inbox</a></li>
         </ul>
+        <button class="btn btn-outline-light btn-sm" onclick="handleLogout()">Logout</button>
       </div>
     </div>
   </nav>
@@ -59,24 +58,15 @@
       </div>
     </div>
 
-    <!-- Lookup panel: shown when no ?id= is in the URL -->
+    <!-- Lookup panel: shown when no ?id= is in the URL.
+         Fetches the user's current bookings so they can pick one — no UUID needed. -->
     <div id="lookup-panel" class="d-none mb-4">
       <div class="card shadow-sm">
-        <div class="card-header bg-secondary text-white fw-semibold">Look Up Payment</div>
-        <div class="card-body">
-          <!-- Manual lookup: Bootstrap needs-validation -->
-          <form id="lookup-form" novalidate>
-            <div class="mb-3">
-              <label for="lookup-id" class="form-label">Booking ID</label>
-              <input type="text" class="form-control" id="lookup-id"
-                     placeholder="Paste booking UUID here" required />
-              <div class="invalid-feedback">Booking ID is required.</div>
-              <div class="form-text">
-                Or navigate here via the <a href="bookings.html">Pay</a> button on a completed booking.
-              </div>
-            </div>
-            <button type="submit" class="btn btn-secondary">Look Up</button>
-          </form>
+        <div class="card-header bg-secondary text-white fw-semibold">Select a Booking to Pay</div>
+        <div class="card-body p-0">
+          <div id="bookings-for-payment" class="p-3">
+            <p class="text-muted mb-0">Loading your bookings…</p>
+          </div>
         </div>
       </div>
     </div>
@@ -92,6 +82,16 @@
   <script src="js/auth.js"></script>
   <script src="js/payment.js"></script>
   <script>
+    // Format ISO datetime → human-readable (duplicated from bookings.js because
+    // payment.html does not load bookings.js).
+    function fmtDate(iso) {
+      if (!iso) return '—';
+      return new Date(iso).toLocaleString('en-GB', {
+        day: '2-digit', month: 'short', year: 'numeric',
+        hour: '2-digit', minute: '2-digit'
+      });
+    }
+
     document.addEventListener('DOMContentLoaded', async () => {
       guardPage();
 
@@ -101,10 +101,60 @@
       if (bookingId) {
         await initWithBookingId(bookingId);
       } else {
-        // No URL param — let the user enter a booking ID manually
+        // No URL param — show the user's current bookings so they can pick one.
+        // They should never need to paste a UUID.
         document.getElementById('lookup-panel').classList.remove('d-none');
+        await loadBookingsForPayment();
       }
     });
+
+    // Fetch current bookings and render a selectable list.
+    async function loadBookingsForPayment() {
+      const container = document.getElementById('bookings-for-payment');
+      try {
+        const res  = await fetch(`${GATEWAY_URL}/api/bookings/current`, { headers: authHeaders() });
+        const data = await res.json();
+
+        if (!res.ok) {
+          container.innerHTML = `<p class="text-danger mb-0">${data.error || 'Failed to load bookings.'}</p>`;
+          return;
+        }
+
+        if (!data.length) {
+          container.innerHTML = `
+            <p class="text-muted mb-0">
+              No current bookings found.
+              <a href="bookings.html">Create a booking first.</a>
+            </p>`;
+          return;
+        }
+
+        // Render a row per booking — user picks one to pay for.
+        container.innerHTML = data.map(b => `
+          <div class="d-flex justify-content-between align-items-center
+                      border-bottom px-3 py-2">
+            <div>
+              <span class="fw-semibold">${b.start_location}</span>
+              <span class="text-muted mx-1">→</span>
+              <span class="fw-semibold">${b.end_location}</span>
+              <span class="text-muted ms-2 small">${fmtDate(b.booking_datetime)}</span>
+              <span class="text-muted ms-2 small">${b.cab_type} · ${b.passengers} pax</span>
+            </div>
+            <button class="btn btn-success btn-sm ms-3 flex-shrink-0"
+                    onclick="selectBooking('${b.id}')">
+              Pay
+            </button>
+          </div>`).join('');
+      } catch {
+        container.innerHTML = `<p class="text-danger mb-0">Cannot reach the server. Make sure all services are running.</p>`;
+      }
+    }
+
+    // Called when the user clicks Pay on a booking row in the selector.
+    async function selectBooking(bookingId) {
+      document.getElementById('lookup-panel').classList.add('d-none');
+      await initWithBookingId(bookingId);
+    }
 
     // Initialise page for a known booking ID
     // Checks for an existing payment first; shows Pay panel if not yet paid.
@@ -165,17 +215,9 @@
       }
     }
 
-    // Manual lookup form
-    // Hides the lookup panel and delegates to initWithBookingId().
-    document.getElementById('lookup-form').addEventListener('submit', async function (e) {
-      e.preventDefault();
-      this.classList.add('was-validated');
-      if (!this.checkValidity()) return;
-
-      const bookingId = document.getElementById('lookup-id').value.trim();
-      document.getElementById('lookup-panel').classList.add('d-none');
-      await initWithBookingId(bookingId);
-    });
+    // Note: manual UUID lookup form removed.
+    // Payment is initiated either via the Pay button on bookings.html
+    // (?id= URL param) or by selecting a booking from the list above.
   </script>
 </body>
 </html>

@@ -44,7 +44,9 @@ async function loadCurrentBookings() {
       return;
     }
 
-    // Render one row per booking; cancel button triggers cancelBooking()
+    // Render one row per booking.
+    // Pay navigates to payment.html with the booking ID pre-filled.
+    // Cancel PATCHes status to 'cancelled'.
     tbody.innerHTML = data.map(b => `
       <tr>
         <td>${b.start_location}</td>
@@ -54,7 +56,8 @@ async function loadCurrentBookings() {
         <td class="text-center">${b.passengers}</td>
         <td>
           ${statusBadge(b.status)}
-          <button class="btn btn-sm btn-outline-danger ms-2"
+          <a href="payment.html?id=${b.id}" class="btn btn-sm btn-success ms-1">Pay</a>
+          <button class="btn btn-sm btn-outline-danger ms-1"
                   onclick="cancelBooking('${b.id}')">Cancel</button>
         </td>
       </tr>`).join('');
@@ -83,7 +86,8 @@ async function loadPastBookings() {
       return;
     }
 
-    // Render one row per booking; completed bookings show a Pay link
+    // Past bookings are read-only — no actions needed.
+    // Payment has already been processed (status=completed) or booking was cancelled.
     tbody.innerHTML = data.map(b => `
       <tr>
         <td>${b.start_location}</td>
@@ -91,12 +95,7 @@ async function loadPastBookings() {
         <td>${formatDate(b.booking_datetime)}</td>
         <td>${b.cab_type}</td>
         <td class="text-center">${b.passengers}</td>
-        <td>
-          ${statusBadge(b.status)}
-          ${b.status === 'completed'
-            ? `<a href="payment.html?id=${b.id}" class="btn btn-sm btn-outline-success ms-2">Pay</a>`
-            : ''}
-        </td>
+        <td>${statusBadge(b.status)}</td>
       </tr>`).join('');
   } catch {
     tbody.innerHTML = emptyRow(6, 'Cannot reach the server.');
