@@ -1,0 +1,87 @@
+{
+  "_": {
+    "postman_variable_scope": "environment"
+  },
+  "id": "74745779-0fb5-4f4e-8a30-491b07448dcb",
+  "name": "Cab Booking Local",
+  "values": [
+    {
+      "type": "any",
+      "value": "http://localhost:4000",
+      "key": "gatewayUrl"
+    },
+    {
+      "type": "any",
+      "value": "http://localhost:3001",
+      "key": "customerServiceUrl"
+    },
+    {
+      "type": "any",
+      "value": "http://localhost:3002",
+      "key": "bookingServiceUrl"
+    },
+    {
+      "type": "any",
+      "value": "http://localhost:3003",
+      "key": "paymentServiceUrl"
+    },
+    {
+      "type": "any",
+      "value": "http://localhost:3004",
+      "key": "fareServiceUrl"
+    },
+    {
+      "type": "any",
+      "value": "http://localhost:3005",
+      "key": "locationServiceUrl"
+    },
+    {
+      "type": "any",
+      "value": "testuser001@example.com",
+      "key": "testEmail"
+    },
+    {
+      "type": "any",
+      "value": "password123",
+      "key": "testPassword"
+    },
+    {
+      "type": "any",
+      "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI0NWY1YjdjMi02ZjA2LTQ4ZDMtYmMwNC1jMDhlNDcxNWE2ODciLCJlbWFpbCI6ImZhcmV0ZXN0KzE3Nzk5NTYxNTgyNDFAZXhhbXBsZS5jb20iLCJpYXQiOjE3Nzk5NTYxNjAsImV4cCI6MTc4MDA0MjU2MH0.VJHLeeI9M7PRbTuSJxUKM9F_gpqSiuqGGNWl4Ud0oh0",
+      "key": "token"
+    },
+    {
+      "type": "any",
+      "value": "45f5b7c2-6f06-48d3-bc04-c08e4715a687",
+      "key": "userId"
+    },
+    {
+      "type": "any",
+      "value": "",
+      "key": "notificationId"
+    },
+    {
+      "type": "any",
+      "value": "",
+      "key": "bookingId"
+    },
+    {
+      "type": "any",
+      "value": "",
+      "key": "cabReadyBookingId"
+    },
+    {
+      "type": "any",
+      "value": "faretest+1779956158241@example.com",
+      "key": "fareTestEmail"
+    },
+    {
+      "type": "any",
+      "value": "Password123!",
+      "key": "fareTestPassword"
+    }
+  ],
+  "_postman_variable_scope": "environment",
+  "_postman_exported_at": "2026-05-28T08:16:01.612Z",
+  "_postman_exported_using": "Newman/6.2.2"
+}

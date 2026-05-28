@@ -4,7 +4,7 @@ The API Gateway is the single entry point for all client requests from the web-a
 
 ## Status
 
-Phase 4 — Customer Service and Booking Service forwarding: implemented and tested locally.
+Phase 5 — Customer Service, Booking Service, and Fare Estimation Service forwarding: implemented and tested locally.
 
 ## Local Port
 
@@ -87,12 +87,21 @@ Cloud Run gives each deployed service its own public HTTPS URL. A caller who kno
 
 **Route path note:** The booking router is mounted at `/api/bookings`. Route definitions use only the suffix after the mount point (`/`, `/current`, `/:id`, etc.) — not the full path. Repeating `/bookings` in the route definition would produce a double-prefix path like `POST /api/bookings/bookings` and cause 404 errors.
 
+### Protected routes — Fare Estimation Service (require `Authorization: Bearer <token>`)
+
+| Method | Gateway route | Forwards to |
+|---|---|---|
+| `GET` | `/api/fare?start_location=...&end_location=...` | Fare Estimation Service `/fare` |
+
+The fare router is mounted at `/api/fare`. The route inside the router is `GET /` — not `GET /fare`. Forwarding passes `params: req.query` so `start_location` and `end_location` are forwarded to the service automatically.
+
+The fare-estimation-service itself has no `requireAuth`. This protects the Gateway-facing endpoint for frontend users while allowing Payment Service to call the service internally without a token.
+
 ## Planned Routes (future phases)
 
 | Prefix | Forwards to |
 |---|---|
 | `/api/payments` | Payment Service |
-| `/api/fare` | Fare Estimation Service |
 | `/api/locations` | Location Service |
 
 ## Axios Error Forwarding
@@ -140,6 +149,14 @@ The script runs the 9-request forwarding suite. If all pass, it pauses and asks 
 
 All three services must be running (Customer on 3001, Booking on 3002, Gateway on 4000). The script runs the 12-request normal flow, then optionally the service-down test and cab-ready event test.
 
+**Run Fare Estimation tests (Phase 5):**
+
+```powershell
+.\scripts\run-fare-newman-tests.ps1
+```
+
+Customer Service (3001), Fare Estimation (3004), and Gateway (4000) must be running. The script registers a fresh user, runs the 8-request normal flow, then optionally the service-down test.
+
 **Run a single collection manually:**
 
 ```powershell
@@ -176,8 +193,8 @@ services/gateway-service/
 │   └── routes/
 │       ├── customerRoutes.js           forwards /api/customers/* to customer-service
 │       ├── bookingRoutes.js            forwards /api/bookings/* to booking-service (phase 4)
+│       ├── fareRoutes.js               forwards /api/fare to fare-estimation-service (phase 5)
 │       ├── paymentRoutes.js            stub (to be implemented)
-│       ├── fareRoutes.js               stub (to be implemented)
 │       └── locationRoutes.js           stub (to be implemented)
 ├── .env                                not committed
 ├── .env.example                        committed with placeholder values

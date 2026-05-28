@@ -2,6 +2,17 @@
 
 This folder stores Postman collections, the shared environment file, and Newman-based testing documentation for the Cab Booking Platform API.
 
+## Quick Start — Run Fare Estimation Tests with Newman
+
+**Prerequisites:** Customer Service on port 3001, Fare Estimation Service on port 3004, Gateway on port 4000, Newman installed globally.
+
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+.\scripts\run-fare-newman-tests.ps1
+```
+
+The script registers a fresh test user, runs the 8-request normal flow (health, validation, direct fare call, gateway auth, gateway fare), and prompts for the optional service-down test.
+
 ## Quick Start — Run Booking Service Tests with Newman
 
 Newman is the command-line runner for Postman collections.
@@ -44,6 +55,8 @@ The script runs the full forwarding suite first. If all tests pass, it pauses an
 | `cab-booking-booking-service.postman_collection.json` | Booking Service normal flow via Gateway (12 requests) | `run-booking-newman-tests.ps1` |
 | `cab-booking-booking-failure.postman_collection.json` | Booking Service service-down test — requires stopping Booking Service | `run-booking-newman-tests.ps1` (prompted) |
 | `cab-booking-cab-ready-event.postman_collection.json` | Cab-ready event test — creates a booking, waits 3 minutes, checks notification | `run-booking-newman-tests.ps1` (prompted) |
+| `cab-booking-fare-estimation-service.postman_collection.json` | Fare Estimation normal flow — register+login, health, validation, direct fare, gateway tests (8 requests) | `run-fare-newman-tests.ps1` |
+| `cab-booking-fare-failure.postman_collection.json` | Fare Estimation service-down test — requires stopping fare-estimation-service | `run-fare-newman-tests.ps1` (prompted) |
 
 Splitting the service-down and cab-ready tests into separate collections is necessary because Newman cannot stop external processes or wait interactively mid-run. The PowerShell script handles pauses and user confirmations between collections.
 
@@ -79,6 +92,8 @@ postman/
 ├── cab-booking-booking-service.postman_collection.json                Step 4 — Booking Service normal flow (12 requests)
 ├── cab-booking-booking-failure.postman_collection.json                Step 4 — Booking Service service-down test
 ├── cab-booking-cab-ready-event.postman_collection.json                Step 4 — cab-ready delayed event test
+├── cab-booking-fare-estimation-service.postman_collection.json        Step 5 — Fare Estimation normal flow (8 requests)
+├── cab-booking-fare-failure.postman_collection.json                   Step 5 — Fare Estimation service-down test
 ├── cab-booking-local.postman_environment.json                         shared environment for all collections
 └── README.md
 ```
@@ -106,6 +121,8 @@ Variables:
 | `notificationId` | empty until notification creation | current test notification ID |
 | `bookingId` | empty until booking creation | created booking ID for subsequent requests |
 | `cabReadyBookingId` | empty until cab-ready test | booking ID used for cab-ready event test |
+| `fareTestEmail` | generated per run | unique email for fare tests (set by pre-request script in 00a) |
+| `fareTestPassword` | `Password123!` | password for fare test user |
 
 ## Important Security Rule
 
@@ -215,6 +232,45 @@ Check Cab Ready Notification          ← GET /api/customers/notifications; asse
 ```
 
 The script waits 190 seconds between these two requests to allow the 3-minute setTimeout to fire.
+
+### cab-booking-fare-estimation-service.postman_collection.json
+
+Fare Estimation Service tests. Run automatically via `run-fare-newman-tests.ps1`.
+
+Folder `00` registers a fresh test user per run and logs in. Folders `01`–`05` run the fare tests.
+
+```text
+00 Setup
+├── 00a — Register test user     ← unique email generated per run (fareTestEmail)
+└── 00b — Login and save token   ← token and userId saved to environment
+
+01 Health Check
+└── Health check — direct service   ← GET fareServiceUrl/health → 200
+
+02 Validation
+├── Missing start_location — expect 400   ← direct on port 3004
+└── Missing end_location — expect 400     ← direct on port 3004
+
+03 Direct Fare Call
+└── Fare estimate — direct service call   ← GET fareServiceUrl/fare?... → 200 with fare object
+
+04 Gateway — No Token
+└── Fare via gateway — no token, expect 401   ← Gateway rejects before forwarding
+
+05 Gateway — With Token
+└── Fare via gateway — with token, expect 200  ← 200 with fare object via Gateway
+```
+
+### cab-booking-fare-failure.postman_collection.json
+
+Service-down test. Run by `run-fare-newman-tests.ps1` after prompting you to stop fare-estimation-service.
+
+```text
+Service Down
+└── Fare via gateway — service down, expect 503   ← 503 from Gateway, not a crash
+```
+
+Note: Only the Gateway 503 request is included. A direct ECONNREFUSED request is not assertable in Newman — it causes a non-zero exit regardless of test script content.
 
 ## Gateway Forwarding Tests — Request Details (Step 3)
 

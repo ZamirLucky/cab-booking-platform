@@ -1,0 +1,48 @@
+{
+  "info": {
+    "name": "Cab Booking Fare Failure — Service Down",
+    "description": "Service-down test for fare-estimation-service.\nConfirms the gateway returns 503 when fare-estimation-service is unreachable.\nPrerequisite: run the normal-flow collection first (token must be set in the environment),\nthen STOP fare-estimation-service before running this collection.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Service Down",
+      "description": "Stop fare-estimation-service before running these requests.",
+      "item": [
+        {
+          "name": "Fare via gateway — service down, expect 503",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 503', () => pm.response.to.have.status(503));",
+                  "",
+                  "const json = pm.response.json();",
+                  "pm.test('Response has error property', () => pm.expect(json).to.have.property('error'));",
+                  "pm.test('Error indicates unavailability', () =>",
+                  "  pm.expect(json.error.toLowerCase()).to.include('unavailable')",
+                  ");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{gatewayUrl}}/api/fare?start_location=Valletta&end_location=Sliema",
+              "host": ["{{gatewayUrl}}"],
+              "path": ["api", "fare"],
+              "query": [
+                { "key": "start_location", "value": "Valletta" },
+                { "key": "end_location",   "value": "Sliema"   }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

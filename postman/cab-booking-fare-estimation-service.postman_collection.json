@@ -1,0 +1,280 @@
+{
+  "info": {
+    "name": "Cab Booking Fare Estimation Service",
+    "description": "Normal-flow tests for fare-estimation-service.\nCovers health, validation, direct service calls, and gateway-forwarded calls with and without a token.\nRun via scripts/run-fare-newman-tests.ps1 or manually with Newman.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "00 Setup",
+      "description": "Register a fresh test user and login to get a JWT token. A unique email is generated per run so the collection is self-contained and independent of database state.",
+      "item": [
+        {
+          "name": "00a — Register test user",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Generate a unique email per run so each Newman run is independent.",
+                  "const ts = Date.now();",
+                  "pm.environment.set('fareTestEmail', 'faretest+' + ts + '@example.com');",
+                  "pm.environment.set('fareTestPassword', 'Password123!');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201 — user registered', () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{gatewayUrl}}/api/customers/register",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"first_name\": \"Fare\",\n  \"surname\": \"Tester\",\n  \"email\": \"{{fareTestEmail}}\",\n  \"password\": \"{{fareTestPassword}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "00b — Login and save token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "",
+                  "const json = pm.response.json();",
+                  "",
+                  "pm.test('Response has token', () => pm.expect(json.token).to.be.a('string').and.not.empty);",
+                  "pm.test('Response has userId', () => pm.expect(json.userId).to.be.a('string').and.not.empty);",
+                  "",
+                  "// Save token and userId for all subsequent requests",
+                  "pm.environment.set('token', json.token);",
+                  "pm.environment.set('userId', json.userId);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{gatewayUrl}}/api/customers/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{fareTestEmail}}\",\n  \"password\": \"{{fareTestPassword}}\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "01 Health Check",
+      "description": "Confirm the service is running and responding correctly.",
+      "item": [
+        {
+          "name": "Health check — direct service",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "",
+                  "const json = pm.response.json();",
+                  "pm.test('Status ok', () => pm.expect(json.status).to.equal('ok'));",
+                  "pm.test('Correct service name', () => pm.expect(json.service).to.equal('fare-estimation-service'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{fareServiceUrl}}/health"
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 Validation",
+      "description": "Confirm the service rejects requests with missing required query parameters.",
+      "item": [
+        {
+          "name": "Missing start_location — expect 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "",
+                  "const json = pm.response.json();",
+                  "pm.test('Error message mentions start_location', () =>",
+                  "  pm.expect(json.error).to.include('start_location')",
+                  ");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{fareServiceUrl}}/fare?end_location=Sliema",
+              "host": ["{{fareServiceUrl}}"],
+              "path": ["fare"],
+              "query": [{ "key": "end_location", "value": "Sliema" }]
+            }
+          }
+        },
+        {
+          "name": "Missing end_location — expect 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "",
+                  "const json = pm.response.json();",
+                  "pm.test('Error message mentions end_location', () =>",
+                  "  pm.expect(json.error).to.include('end_location')",
+                  ");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{fareServiceUrl}}/fare?start_location=Valletta",
+              "host": ["{{fareServiceUrl}}"],
+              "path": ["fare"],
+              "query": [{ "key": "start_location", "value": "Valletta" }]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "03 Direct Fare Call",
+      "description": "Call fare-estimation-service directly (no gateway, no auth) to verify external API integration.",
+      "item": [
+        {
+          "name": "Fare estimate — direct service call",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "",
+                  "const json = pm.response.json();",
+                  "pm.test('Response has fare property', () => pm.expect(json).to.have.property('fare'));",
+                  "pm.test('fare is an object', () => pm.expect(json.fare).to.be.an('object'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{fareServiceUrl}}/fare?start_location=Valletta&end_location=Sliema",
+              "host": ["{{fareServiceUrl}}"],
+              "path": ["fare"],
+              "query": [
+                { "key": "start_location", "value": "Valletta" },
+                { "key": "end_location",   "value": "Sliema"   }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "04 Gateway — No Token",
+      "description": "Confirm the gateway rejects fare requests without a valid JWT.",
+      "item": [
+        {
+          "name": "Fare via gateway — no token, expect 401",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 401', () => pm.response.to.have.status(401));",
+                  "",
+                  "const json = pm.response.json();",
+                  "pm.test('Response has error property', () => pm.expect(json).to.have.property('error'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{gatewayUrl}}/api/fare?start_location=Valletta&end_location=Sliema",
+              "host": ["{{gatewayUrl}}"],
+              "path": ["api", "fare"],
+              "query": [
+                { "key": "start_location", "value": "Valletta" },
+                { "key": "end_location",   "value": "Sliema"   }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "05 Gateway — With Token",
+      "description": "Confirm the gateway forwards the fare request and returns the external API result.",
+      "item": [
+        {
+          "name": "Fare via gateway — with token, expect 200",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "",
+                  "const json = pm.response.json();",
+                  "pm.test('Response has fare property', () => pm.expect(json).to.have.property('fare'));",
+                  "pm.test('fare is an object', () => pm.expect(json.fare).to.be.an('object'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{gatewayUrl}}/api/fare?start_location=Valletta&end_location=Sliema",
+              "host": ["{{gatewayUrl}}"],
+              "path": ["api", "fare"],
+              "query": [
+                { "key": "start_location", "value": "Valletta" },
+                { "key": "end_location",   "value": "Sliema"   }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
