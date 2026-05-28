@@ -1,0 +1,457 @@
+{
+  "info": {
+    "name": "Cab Booking - Discount Event Test",
+    "description": "Verifies the booking.completed event discount logic end-to-end.\nRegisters a fresh user, completes 4 booking cycles, and asserts:\n  - A discount notification is created after the 3rd completed booking.\n  - No second discount notification appears after the 4th completed booking.\nRun via scripts/run-booking-newman-tests.ps1 (Stage 4) or manually with Newman.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "00 Setup",
+      "description": "Register a fresh test user and login. A unique email is generated per run so the collection is self-contained.",
+      "item": [
+        {
+          "name": "00a — Register test user",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Generate unique email per run so discount state is always fresh.",
+                  "const ts = Date.now();",
+                  "pm.environment.set('discountTestEmail',    'discounttest+' + ts + '@example.com');",
+                  "pm.environment.set('discountTestPassword', 'Password123!');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201 — user registered', () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{gatewayUrl}}/api/customers/register",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"first_name\": \"Discount\",\n  \"surname\": \"Tester\",\n  \"email\": \"{{discountTestEmail}}\",\n  \"password\": \"{{discountTestPassword}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "00b — Login and save token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "",
+                  "const json = pm.response.json();",
+                  "",
+                  "pm.test('Response has token', () => pm.expect(json.token).to.be.a('string').and.not.empty);",
+                  "pm.test('Response has userId', () => pm.expect(json.userId).to.be.a('string').and.not.empty);",
+                  "",
+                  "pm.environment.set('token',  json.token);",
+                  "pm.environment.set('userId', json.userId);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{gatewayUrl}}/api/customers/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{discountTestEmail}}\",\n  \"password\": \"{{discountTestPassword}}\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "01 Booking 1 Cycle",
+      "description": "Create a booking and immediately patch it to completed. Completed count: 1 — no discount fires.",
+      "item": [
+        {
+          "name": "01a — Create Booking 1",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "",
+                  "const json = pm.response.json();",
+                  "pm.test('Response has id', () => pm.expect(json.id).to.be.a('string').and.not.empty);",
+                  "",
+                  "pm.environment.set('disBookingId1', json.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{gatewayUrl}}/api/bookings",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"start_location\": \"Valletta\",\n  \"end_location\": \"Sliema\",\n  \"booking_datetime\": \"2026-06-01T10:00:00.000Z\",\n  \"passengers\": 1,\n  \"cab_type\": \"Economic\"\n}"
+            }
+          }
+        },
+        {
+          "name": "01b — PATCH Booking 1 to completed",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "",
+                  "const json = pm.response.json();",
+                  "pm.test('Status is completed', () => pm.expect(json.status).to.equal('completed'));",
+                  "console.log('[discount] Booking 1 completed. Count so far: 1 (no discount yet).');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{gatewayUrl}}/api/bookings/{{disBookingId1}}/status",
+              "host": ["{{gatewayUrl}}"],
+              "path": ["api", "bookings", "{{disBookingId1}}", "status"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"completed\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 Booking 2 Cycle",
+      "description": "Create and complete a second booking. Completed count: 2 — no discount fires.",
+      "item": [
+        {
+          "name": "02a — Create Booking 2",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "",
+                  "const json = pm.response.json();",
+                  "pm.test('Response has id', () => pm.expect(json.id).to.be.a('string').and.not.empty);",
+                  "",
+                  "pm.environment.set('disBookingId2', json.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{gatewayUrl}}/api/bookings",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"start_location\": \"Valletta\",\n  \"end_location\": \"Mdina\",\n  \"booking_datetime\": \"2026-06-02T10:00:00.000Z\",\n  \"passengers\": 1,\n  \"cab_type\": \"Economic\"\n}"
+            }
+          }
+        },
+        {
+          "name": "02b — PATCH Booking 2 to completed",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "",
+                  "const json = pm.response.json();",
+                  "pm.test('Status is completed', () => pm.expect(json.status).to.equal('completed'));",
+                  "console.log('[discount] Booking 2 completed. Count so far: 2 (no discount yet).');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{gatewayUrl}}/api/bookings/{{disBookingId2}}/status",
+              "host": ["{{gatewayUrl}}"],
+              "path": ["api", "bookings", "{{disBookingId2}}", "status"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"completed\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "03 Booking 3 Cycle — Discount Trigger",
+      "description": "Create and complete a third booking. Completed count reaches 3 — booking.completed event fires discount notification and sets discount_available = true.",
+      "item": [
+        {
+          "name": "03a — Create Booking 3",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "",
+                  "const json = pm.response.json();",
+                  "pm.test('Response has id', () => pm.expect(json.id).to.be.a('string').and.not.empty);",
+                  "",
+                  "pm.environment.set('disBookingId3', json.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{gatewayUrl}}/api/bookings",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"start_location\": \"Valletta\",\n  \"end_location\": \"Marsaxlokk\",\n  \"booking_datetime\": \"2026-06-03T10:00:00.000Z\",\n  \"passengers\": 1,\n  \"cab_type\": \"Economic\"\n}"
+            }
+          }
+        },
+        {
+          "name": "03b — PATCH Booking 3 to completed (discount trigger)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "",
+                  "const json = pm.response.json();",
+                  "pm.test('Status is completed', () => pm.expect(json.status).to.equal('completed'));",
+                  "console.log('[discount] Booking 3 completed. Count: 3 — discount event should fire now.');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{gatewayUrl}}/api/bookings/{{disBookingId3}}/status",
+              "host": ["{{gatewayUrl}}"],
+              "path": ["api", "bookings", "{{disBookingId3}}", "status"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"completed\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "04 Verify Discount",
+      "description": "Confirm a discount notification was created after the 3rd completed booking.",
+      "item": [
+        {
+          "name": "04a — GET notifications — expect discount notification",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// The booking.completed event handler is async — it runs 2 DB queries and",
+                  "// an Axios POST to Customer Service after the PATCH route returns 200.",
+                  "// Without a delay, Newman fires this GET before the handler finishes (~500ms).",
+                  "// A 2-second synchronous busy-wait is reliable in Newman pre-request scripts.",
+                  "const waitMs = 2000;",
+                  "const until = Date.now() + waitMs;",
+                  "while (Date.now() < until) { /* busy wait */ }",
+                  "console.log('[discount] Pre-request delay complete. Fetching notifications.');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "",
+                  "const json = pm.response.json();",
+                  "const notifications = json.notifications || [];",
+                  "",
+                  "console.log('[discount] Total notifications:', notifications.length);",
+                  "console.log('[discount] Types:', notifications.map(n => n.type).join(', '));",
+                  "",
+                  "pm.test('Discount notification exists', () => {",
+                  "  const found = notifications.some(n => n.type === 'discount');",
+                  "  pm.expect(found).to.be.true;",
+                  "});",
+                  "",
+                  "const discountNotif = notifications.find(n => n.type === 'discount');",
+                  "",
+                  "pm.test('Discount notification has title', () =>",
+                  "  pm.expect(discountNotif.title).to.be.a('string').and.not.empty",
+                  ");",
+                  "",
+                  "pm.test('Discount notification has message', () =>",
+                  "  pm.expect(discountNotif.message).to.be.a('string').and.not.empty",
+                  ");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{gatewayUrl}}/api/customers/notifications"
+          }
+        }
+      ]
+    },
+    {
+      "name": "05 Booking 4 Cycle — No Second Discount",
+      "description": "Complete a 4th booking and confirm no second discount notification is created. The discount_notification_sent flag prevents duplicate notifications.",
+      "item": [
+        {
+          "name": "05a — Create Booking 4",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "",
+                  "const json = pm.response.json();",
+                  "pm.test('Response has id', () => pm.expect(json.id).to.be.a('string').and.not.empty);",
+                  "",
+                  "pm.environment.set('disBookingId4', json.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{gatewayUrl}}/api/bookings",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"start_location\": \"Valletta\",\n  \"end_location\": \"Birgu\",\n  \"booking_datetime\": \"2026-06-04T10:00:00.000Z\",\n  \"passengers\": 1,\n  \"cab_type\": \"Economic\"\n}"
+            }
+          }
+        },
+        {
+          "name": "05b — PATCH Booking 4 to completed",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "",
+                  "const json = pm.response.json();",
+                  "pm.test('Status is completed', () => pm.expect(json.status).to.equal('completed'));",
+                  "console.log('[discount] Booking 4 completed. Count: 4 — discount_notification_sent=true should prevent second notification.');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{gatewayUrl}}/api/bookings/{{disBookingId4}}/status",
+              "host": ["{{gatewayUrl}}"],
+              "path": ["api", "bookings", "{{disBookingId4}}", "status"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"completed\"\n}"
+            }
+          }
+        },
+        {
+          "name": "05c — GET notifications — still exactly 1 discount",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "",
+                  "const json = pm.response.json();",
+                  "const notifications = json.notifications || [];",
+                  "",
+                  "const discountNotifications = notifications.filter(n => n.type === 'discount');",
+                  "",
+                  "console.log('[discount] Total discount notifications after 4th booking:', discountNotifications.length);",
+                  "",
+                  "pm.test('Exactly 1 discount notification (no duplicate after 4th booking)', () => {",
+                  "  pm.expect(discountNotifications.length).to.equal(1);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{gatewayUrl}}/api/customers/notifications"
+          }
+        }
+      ]
+    }
+  ]
+}

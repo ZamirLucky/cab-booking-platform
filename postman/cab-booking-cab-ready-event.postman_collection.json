@@ -1,108 +1,93 @@
 {
   "info": {
     "name": "Cab Booking - Cab Ready Event Test",
+    "description": "Two-step timed test for the booking.created event.\nStep 1 (Create Booking For Cab Ready Event): creates a booking and saves the id.\nStep 2 (Check Cab Ready Notification): runs after a 190-second sleep in the PS1 runner and asserts\nthat a cab_ready notification was delivered to the user's inbox by the 3-minute setTimeout.\nRun via scripts/run-booking-newman-tests.ps1 — do not run steps manually out of order.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
     {
       "name": "Create Booking For Cab Ready Event",
-      "request": {
-        "method": "POST",
-        "auth": {
-          "type": "bearer",
-          "bearer": [
-            {
-              "key": "token",
-              "value": "{{token}}",
-              "type": "string"
-            }
-          ]
-        },
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"start_location\": \"Valletta\",\n  \"end_location\": \"Sliema\",\n  \"booking_datetime\": \"2026-06-01T10:00:00.000Z\",\n  \"passengers\": 1,\n  \"cab_type\": \"Economic\"\n}",
-          "options": {
-            "raw": {
-              "language": "json"
-            }
-          }
-        },
-        "url": {
-          "raw": "{{gatewayUrl}}/api/bookings",
-          "host": [
-            "{{gatewayUrl}}"
-          ],
-          "path": [
-            "api",
-            "bookings"
-          ]
-        }
-      },
       "event": [
         {
           "listen": "test",
           "script": {
             "type": "text/javascript",
             "exec": [
-              "const json = pm.response.json();",
               "pm.test('Cab-ready setup booking returns 201', () => pm.response.to.have.status(201));",
-              "const bookingId = json.bookingId || json.id || (json.booking && json.booking.id);",
-              "pm.environment.set('cabReadyBookingId', bookingId);",
-              "console.log('Cab-ready bookingId:', bookingId);",
-              "console.log('Wait 3 minutes before running the next request/collection check.');"
+              "",
+              "const json = pm.response.json();",
+              "",
+              "pm.test('Response has booking id', () => pm.expect(json.id).to.be.a('string').and.not.empty);",
+              "",
+              "// Save booking id for the notification check step",
+              "pm.environment.set('cabReadyBookingId', json.id);",
+              "console.log('[cab-ready] Booking created. id:', json.id, '— waiting 3 minutes for notification...');"
             ]
           }
         }
-      ]
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type",  "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "url": "{{gatewayUrl}}/api/bookings",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"start_location\": \"Valletta\",\n  \"end_location\": \"Sliema\",\n  \"booking_datetime\": \"2026-06-01T10:00:00.000Z\",\n  \"passengers\": 2,\n  \"cab_type\": \"Economic\"\n}"
+        }
+      }
     },
     {
       "name": "Check Cab Ready Notification",
-      "request": {
-        "method": "GET",
-        "auth": {
-          "type": "bearer",
-          "bearer": [
-            {
-              "key": "token",
-              "value": "{{token}}",
-              "type": "string"
-            }
-          ]
-        },
-        "header": [],
-        "url": {
-          "raw": "{{gatewayUrl}}/api/customers/notifications",
-          "host": [
-            "{{gatewayUrl}}"
-          ],
-          "path": [
-            "api",
-            "customers",
-            "notifications"
-          ]
-        }
-      },
       "event": [
         {
           "listen": "test",
           "script": {
             "type": "text/javascript",
             "exec": [
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "",
               "const json = pm.response.json();",
               "const notifications = json.notifications || [];",
-              "pm.test('Notifications returns 200', () => pm.response.to.have.status(200));",
-              "pm.test('Cab-ready notification exists', () => { const found = notifications.some(n => n.type === 'cab_ready'); pm.expect(found).to.eql(true); });",
-              "console.log('Notification count:', notifications.length);"
+              "",
+              "console.log('[cab-ready] Total notifications in inbox:', notifications.length);",
+              "",
+              "pm.test('Cab-ready notification exists in inbox', () => {",
+              "  const found = notifications.some(n => n.type === 'cab_ready');",
+              "  pm.expect(found).to.be.true;",
+              "});",
+              "",
+              "// Verify the notification message contains the ride details from the booking above",
+              "const cabReadyNotif = notifications.find(n => n.type === 'cab_ready');",
+              "",
+              "pm.test('Cab-ready notification has title', () =>",
+              "  pm.expect(cabReadyNotif.title).to.be.a('string').and.not.empty",
+              ");",
+              "",
+              "pm.test('Notification message includes cab type', () =>",
+              "  pm.expect(cabReadyNotif.message).to.include('Economic')",
+              ");",
+              "",
+              "pm.test('Notification message includes start location', () =>",
+              "  pm.expect(cabReadyNotif.message).to.include('Valletta')",
+              ");",
+              "",
+              "pm.test('Notification message includes end location', () =>",
+              "  pm.expect(cabReadyNotif.message).to.include('Sliema')",
+              ");"
             ]
           }
         }
-      ]
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "url": "{{gatewayUrl}}/api/customers/notifications"
+      }
     }
   ]
 }

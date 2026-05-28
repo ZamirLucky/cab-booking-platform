@@ -1,10 +1,10 @@
 {
   "_": {
     "postman_variable_scope": "environment",
-    "postman_exported_at": "2026-05-27T21:33:10.777Z",
+    "postman_exported_at": "2026-05-28T17:49:48.191Z",
     "postman_exported_using": "Newman/6.2.2"
   },
-  "id": "a69be3ea-18a6-45a7-8dd6-0f595ad48ff9",
+  "id": "f859779d-6039-49f8-9bdb-beda16760d4a",
   "name": "Cab Booking Local",
   "values": [
     {
@@ -39,7 +39,7 @@
     },
     {
       "type": "any",
-      "value": "bookingtest+1779917585161@example.com",
+      "value": "bookingtest+1779990581718@example.com",
       "key": "testEmail"
     },
     {
@@ -49,12 +49,12 @@
     },
     {
       "type": "any",
-      "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI3ZjY5MDI4Ny0zNjlhLTRjZjktYmRhNi02NjVmYTBkZjMyYjkiLCJlbWFpbCI6ImJvb2tpbmd0ZXN0KzE3Nzk5MTc1ODUxNjFAZXhhbXBsZS5jb20iLCJpYXQiOjE3Nzk5MTc1ODcsImV4cCI6MTc4MDAwMzk4N30.uqhId7INZTeOrZU0aGTW0_5Fm52_mLF320ngptvGEJg",
+      "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIwOGJiOTFlZC1lOTI3LTQxNWMtYWYxNC00MmIyOWMwZTg1NWQiLCJlbWFpbCI6ImJvb2tpbmd0ZXN0KzE3Nzk5OTA1ODE3MThAZXhhbXBsZS5jb20iLCJpYXQiOjE3Nzk5OTA1ODMsImV4cCI6MTc4MDA3Njk4M30.7G3Lb8jMafoUpJ8jCigXtNax6QPWulDNv9bmzlu0rAM",
       "key": "token"
     },
     {
       "type": "any",
-      "value": "7f690287-369a-4cf9-bda6-665fa0df32b9",
+      "value": "08bb91ed-e927-415c-af14-42b29c0e855d",
       "key": "userId"
     },
     {
@@ -64,16 +64,16 @@
     },
     {
       "type": "any",
-      "value": "80bad107-2fb0-4d8d-bcb0-e453252d2e3e",
+      "value": "9995b275-8d3b-4a6c-9447-5fc126ccf22a",
       "key": "bookingId"
     },
     {
       "type": "any",
-      "value": "b3477f86-ab10-47da-88c3-34937a4ac531",
+      "value": "70e08d4d-c2a5-422e-828d-dbdd85afe21b",
       "key": "cabReadyBookingId"
     }
   ],
   "_postman_variable_scope": "environment",
-  "_postman_exported_at": "2026-05-27T21:36:53.450Z",
+  "_postman_exported_at": "2026-05-28T17:49:54.575Z",
   "_postman_exported_using": "Newman/6.2.2"
 }
