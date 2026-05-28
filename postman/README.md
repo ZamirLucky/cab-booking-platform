@@ -2,6 +2,19 @@
 
 This folder stores Postman collections, the shared environment file, and Newman-based testing documentation for the Cab Booking Platform API.
 
+## Quick Start — Run Payment Service Tests with Newman
+
+**Prerequisites:** All five services running — Customer (3001), Booking (3002), Payment (3003), Fare Estimation (3004), Gateway (4000). Newman installed globally.
+
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+.\scripts\run-payment-service-newman-tests.ps1
+```
+
+The script registers two fresh test users (User A and User B), runs the 9-request payment normal flow (health, booking creation, auth test, validation test, wrong-owner test, valid payment, retrieval, duplicate 409, and past booking check), and prompts for the optional service-down test.
+
+Two users are needed to test ownership: User A attempts to pay User B's booking — expected 404.
+
 ## Quick Start — Run Fare Estimation Tests with Newman
 
 **Prerequisites:** Customer Service on port 3001, Fare Estimation Service on port 3004, Gateway on port 4000, Newman installed globally.
@@ -57,6 +70,8 @@ The script runs the full forwarding suite first. If all tests pass, it pauses an
 | `cab-booking-cab-ready-event.postman_collection.json` | Cab-ready event test — creates a booking, waits 3 minutes, checks notification | `run-booking-newman-tests.ps1` (prompted) |
 | `cab-booking-fare-estimation-service.postman_collection.json` | Fare Estimation normal flow — register+login, health, validation, direct fare, gateway tests (8 requests) | `run-fare-newman-tests.ps1` |
 | `cab-booking-fare-failure.postman_collection.json` | Fare Estimation service-down test — requires stopping fare-estimation-service | `run-fare-newman-tests.ps1` (prompted) |
+| `cab-booking-payment-service.postman_collection.json` | Payment Service normal flow via Gateway (9 requests, two-user setup) | `run-payment-service-newman-tests.ps1` |
+| `cab-booking-payment-failure.postman_collection.json` | Payment Service service-down test — requires stopping payment-service | `run-payment-service-newman-tests.ps1` (prompted) |
 
 Splitting the service-down and cab-ready tests into separate collections is necessary because Newman cannot stop external processes or wait interactively mid-run. The PowerShell script handles pauses and user confirmations between collections.
 
@@ -94,6 +109,8 @@ postman/
 ├── cab-booking-cab-ready-event.postman_collection.json                Step 4 — cab-ready delayed event test
 ├── cab-booking-fare-estimation-service.postman_collection.json        Step 5 — Fare Estimation normal flow (8 requests)
 ├── cab-booking-fare-failure.postman_collection.json                   Step 5 — Fare Estimation service-down test
+├── cab-booking-payment-service.postman_collection.json                Step 6 — Payment Service normal flow (9 requests, two-user setup)
+├── cab-booking-payment-failure.postman_collection.json                Step 6 — Payment Service service-down test
 ├── cab-booking-local.postman_environment.json                         shared environment for all collections
 └── README.md
 ```

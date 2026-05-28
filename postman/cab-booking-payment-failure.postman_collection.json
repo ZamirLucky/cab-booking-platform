@@ -1,0 +1,47 @@
+{
+  "info": {
+    "name": "Cab Booking Payment — Service Down",
+    "description": "Service-down test for payment-service.\nConfirms the gateway returns 503 when payment-service is unreachable.\nPrerequisite: run the normal-flow collection first (token must be set in the environment),\nthen STOP payment-service before running this collection.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Service Down",
+      "description": "Stop payment-service before running these requests.",
+      "item": [
+        {
+          "name": "Payment via gateway — service down, expect 503",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 503', () => pm.response.to.have.status(503));",
+                  "",
+                  "const json = pm.response.json();",
+                  "pm.test('Response has error property', () => pm.expect(json).to.have.property('error'));",
+                  "pm.test('Error indicates unavailability', () =>",
+                  "  pm.expect(json.error.toLowerCase()).to.include('unavailable')",
+                  ");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{gatewayUrl}}/api/payments",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"booking_id\": \"{{bookingId}}\"\n}"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -9,6 +9,7 @@ const cors = require('cors');
 const customerRoutes = require('./routes/customerRoutes');
 const bookingRoutes  = require('./routes/bookingRoutes');
 const fareRoutes     = require('./routes/fareRoutes');
+const paymentRoutes  = require('./routes/paymentRoutes');
 const errorHandler   = require('./middleware/errorHandler');
 
 const app = express();
@@ -28,6 +29,9 @@ app.use('/api/bookings', bookingRoutes);
 
 // Fare estimation routes
 app.use('/api/fare', fareRoutes);
+
+// Payment service routes
+app.use('/api/payments',  paymentRoutes);
 
 // Error handler — must be last
 app.use(errorHandler);

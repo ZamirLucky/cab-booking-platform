@@ -1,0 +1,498 @@
+{
+  "info": {
+    "name": "Cab Booking Payment Service",
+    "description": "Normal-flow tests for payment-service.\nCovers health, booking creation, auth enforcement, input validation, wrong-owner rejection, successful payment, get-payment retrieval, duplicate-payment rejection, and past-booking verification.\nRun via scripts/run-payment-service-newman-tests.ps1 or manually with Newman.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "00 Setup",
+      "description": "Register two fresh test users and create a booking for User B. Unique emails are generated per run so the collection is self-contained and independent of database state.",
+      "item": [
+        {
+          "name": "00a — Register User A",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Generate unique emails for both test users so each Newman run is independent.",
+                  "const ts = Date.now();",
+                  "pm.environment.set('payTestEmail',   'paytest1+' + ts + '@example.com');",
+                  "pm.environment.set('paySecondEmail', 'paytest2+' + ts + '@example.com');",
+                  "pm.environment.set('payTestPassword', 'Password123!');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201 — User A registered', () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{gatewayUrl}}/api/customers/register",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"first_name\": \"Pay\",\n  \"surname\": \"TesterA\",\n  \"email\": \"{{payTestEmail}}\",\n  \"password\": \"{{payTestPassword}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "00b — Login User A and save token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "",
+                  "const json = pm.response.json();",
+                  "",
+                  "pm.test('Response has token', () => pm.expect(json.token).to.be.a('string').and.not.empty);",
+                  "pm.test('Response has userId', () => pm.expect(json.userId).to.be.a('string').and.not.empty);",
+                  "",
+                  "// Save token and userId for all subsequent User A requests",
+                  "pm.environment.set('token', json.token);",
+                  "pm.environment.set('userId', json.userId);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{gatewayUrl}}/api/customers/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{payTestEmail}}\",\n  \"password\": \"{{payTestPassword}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "00c — Register User B",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201 — User B registered', () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{gatewayUrl}}/api/customers/register",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"first_name\": \"Pay\",\n  \"surname\": \"TesterB\",\n  \"email\": \"{{paySecondEmail}}\",\n  \"password\": \"{{payTestPassword}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "00d — Login User B and save secondToken",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "",
+                  "const json = pm.response.json();",
+                  "",
+                  "pm.test('Response has token', () => pm.expect(json.token).to.be.a('string').and.not.empty);",
+                  "",
+                  "// Save User B's token for the wrong-owner setup request (00e)",
+                  "pm.environment.set('secondToken', json.token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{gatewayUrl}}/api/customers/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{paySecondEmail}}\",\n  \"password\": \"{{payTestPassword}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "00e — User B creates a booking",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201 — User B booking created', () => pm.response.to.have.status(201));",
+                  "",
+                  "const json = pm.response.json();",
+                  "",
+                  "pm.test('Response has booking id', () => pm.expect(json.id).to.be.a('string').and.not.empty);",
+                  "",
+                  "// Save User B's booking id so User A can attempt to pay for it in test 05",
+                  "pm.environment.set('otherUserBookingId', json.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{secondToken}}" }
+            ],
+            "url": "{{gatewayUrl}}/api/bookings",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"start_location\": \"Valletta\",\n  \"end_location\": \"Mdina\",\n  \"booking_datetime\": \"2026-06-01T09:00:00.000Z\",\n  \"passengers\": 1,\n  \"cab_type\": \"Economic\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "01 Health Check",
+      "description": "Confirm payment-service is running and responding correctly.",
+      "item": [
+        {
+          "name": "Health check — direct service",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "",
+                  "const json = pm.response.json();",
+                  "pm.test('Status ok', () => pm.expect(json.status).to.equal('ok'));",
+                  "pm.test('Correct service name', () => pm.expect(json.service).to.equal('payment-service'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{paymentServiceUrl}}/health"
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 Create Booking",
+      "description": "User A creates a Premium booking via the gateway. The booking id is saved for all payment tests.",
+      "item": [
+        {
+          "name": "User A creates Premium booking via gateway — expect 201",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201 — booking created', () => pm.response.to.have.status(201));",
+                  "",
+                  "const json = pm.response.json();",
+                  "",
+                  "pm.test('Response has booking id', () => pm.expect(json.id).to.be.a('string').and.not.empty);",
+                  "pm.test('cab_type is Premium', () => pm.expect(json.cab_type).to.equal('Premium'));",
+                  "",
+                  "// Save bookingId for tests 03, 05, 06, 07, 08, and 09",
+                  "pm.environment.set('bookingId', json.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{gatewayUrl}}/api/bookings",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"start_location\": \"Valletta\",\n  \"end_location\": \"Sliema\",\n  \"booking_datetime\": \"2026-06-01T10:00:00.000Z\",\n  \"passengers\": 3,\n  \"cab_type\": \"Premium\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "03 Auth",
+      "description": "Confirm the gateway rejects payment requests without a valid JWT.",
+      "item": [
+        {
+          "name": "Pay — no token, expect 401",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 401', () => pm.response.to.have.status(401));",
+                  "",
+                  "const json = pm.response.json();",
+                  "pm.test('Response has error property', () => pm.expect(json).to.have.property('error'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{gatewayUrl}}/api/payments",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"booking_id\": \"{{bookingId}}\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "04 Validation",
+      "description": "Confirm payment-service rejects requests with missing required fields.",
+      "item": [
+        {
+          "name": "Pay — missing booking_id, expect 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "",
+                  "const json = pm.response.json();",
+                  "pm.test('Error message mentions booking_id', () =>",
+                  "  pm.expect(json.error).to.include('booking_id')",
+                  ");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{gatewayUrl}}/api/payments",
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "05 Wrong Owner",
+      "description": "Confirm payment-service rejects a payment attempt for a booking that belongs to a different user.",
+      "item": [
+        {
+          "name": "User A pays User B's booking — expect 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 404', () => pm.response.to.have.status(404));",
+                  "",
+                  "const json = pm.response.json();",
+                  "pm.test('Response has error property', () => pm.expect(json).to.have.property('error'));",
+                  "pm.test('Error indicates booking not found', () =>",
+                  "  pm.expect(json.error.toLowerCase()).to.include('not found')",
+                  ");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{gatewayUrl}}/api/payments",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"booking_id\": \"{{otherUserBookingId}}\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "06 Pay Valid",
+      "description": "Process a valid payment for a Premium booking. Asserts total_price (number), cab_multiplier (1.2 for Premium — assignment brief value), calculation_breakdown (object), and status (paid).",
+      "item": [
+        {
+          "name": "User A pays for booking — expect 201",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "",
+                  "const json = pm.response.json();",
+                  "",
+                  "pm.test('total_price is a number', () =>",
+                  "  pm.expect(Number(json.total_price)).to.be.a('number').and.not.be.NaN",
+                  ");",
+                  "pm.test('cab_multiplier is 1.2 (Premium — assignment brief)', () =>",
+                  "  pm.expect(Number(json.cab_multiplier)).to.equal(1.2)",
+                  ");",
+                  "pm.test('calculation_breakdown is an object', () =>",
+                  "  pm.expect(json.calculation_breakdown).to.be.an('object')",
+                  ");",
+                  "pm.test('status is paid', () => pm.expect(json.status).to.equal('paid'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{gatewayUrl}}/api/payments",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"booking_id\": \"{{bookingId}}\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "07 Get Payment",
+      "description": "Retrieve the payment record for the completed booking via the gateway.",
+      "item": [
+        {
+          "name": "Get payment via gateway — expect 200",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "",
+                  "const json = pm.response.json();",
+                  "",
+                  "pm.test('booking_id matches', () =>",
+                  "  pm.expect(json.booking_id).to.equal(pm.environment.get('bookingId'))",
+                  ");",
+                  "pm.test('status is paid', () => pm.expect(json.status).to.equal('paid'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{gatewayUrl}}/api/payments/{{bookingId}}",
+              "host": ["{{gatewayUrl}}"],
+              "path": ["api", "payments", "{{bookingId}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "08 Duplicate Payment",
+      "description": "Confirm payment-service rejects a second payment attempt for the same booking.",
+      "item": [
+        {
+          "name": "Pay again for same booking — expect 409",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 409', () => pm.response.to.have.status(409));",
+                  "",
+                  "const json = pm.response.json();",
+                  "pm.test('Response has error property', () => pm.expect(json).to.have.property('error'));",
+                  "pm.test('Error indicates payment already exists', () =>",
+                  "  pm.expect(json.error.toLowerCase()).to.include('already exists')",
+                  ");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{gatewayUrl}}/api/payments",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"booking_id\": \"{{bookingId}}\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "09 Booking in Past",
+      "description": "Confirm the paid booking appears in User A's past-bookings list after payment marks it completed.",
+      "item": [
+        {
+          "name": "Past bookings include completed booking — expect 200",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "",
+                  "const json = pm.response.json();",
+                  "",
+                  "pm.test('Response is an array', () => pm.expect(json).to.be.an('array'));",
+                  "",
+                  "const bookingId = pm.environment.get('bookingId');",
+                  "pm.test('Paid booking appears in past list', () => {",
+                  "  const ids = json.map(b => b.id);",
+                  "  pm.expect(ids).to.include(bookingId);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{gatewayUrl}}/api/bookings/past"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -4,7 +4,7 @@ The API Gateway is the single entry point for all client requests from the web-a
 
 ## Status
 
-Phase 5 — Customer Service, Booking Service, and Fare Estimation Service forwarding: implemented and tested locally.
+Phase 6 — Payment Service forwarding: implemented. Newman tests written. Pending local test run.
 
 ## Local Port
 
@@ -97,11 +97,17 @@ The fare router is mounted at `/api/fare`. The route inside the router is `GET /
 
 The fare-estimation-service itself has no `requireAuth`. This protects the Gateway-facing endpoint for frontend users while allowing Payment Service to call the service internally without a token.
 
+### Protected routes — Payment Service (require `Authorization: Bearer <token>`)
+
+| Method | Gateway route | Forwards to |
+|---|---|---|
+| `POST` | `/api/payments` | Payment Service `/payments` |
+| `GET` | `/api/payments/:bookingId` | Payment Service `/payments/:bookingId` |
+
 ## Planned Routes (future phases)
 
 | Prefix | Forwards to |
 |---|---|
-| `/api/payments` | Payment Service |
 | `/api/locations` | Location Service |
 
 ## Axios Error Forwarding
@@ -157,6 +163,14 @@ All three services must be running (Customer on 3001, Booking on 3002, Gateway o
 
 Customer Service (3001), Fare Estimation (3004), and Gateway (4000) must be running. The script registers a fresh user, runs the 8-request normal flow, then optionally the service-down test.
 
+**Run Payment Service tests (Phase 6):**
+
+```powershell
+.\scripts\run-payment-service-newman-tests.ps1
+```
+
+All five services must be running: Customer (3001), Booking (3002), Payment (3003), Fare Estimation (3004), and Gateway (4000). The script registers two fresh users, runs the 9-request normal flow (health, create booking, auth, validation, wrong-owner, valid payment, get payment, duplicate payment, booking in past), then optionally the service-down test.
+
 **Run a single collection manually:**
 
 ```powershell
@@ -194,7 +208,7 @@ services/gateway-service/
 │       ├── customerRoutes.js           forwards /api/customers/* to customer-service
 │       ├── bookingRoutes.js            forwards /api/bookings/* to booking-service (phase 4)
 │       ├── fareRoutes.js               forwards /api/fare to fare-estimation-service (phase 5)
-│       ├── paymentRoutes.js            stub (to be implemented)
+│       ├── paymentRoutes.js            forwards /api/payments/* to payment-service (phase 6)
 │       └── locationRoutes.js           stub (to be implemented)
 ├── .env                                not committed
 ├── .env.example                        committed with placeholder values

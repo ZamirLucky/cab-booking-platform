@@ -1,0 +1,102 @@
+{
+  "_": {
+    "postman_variable_scope": "environment"
+  },
+  "id": "3510683b-0be9-4f0d-9195-1b6da55db219",
+  "name": "Cab Booking Local",
+  "values": [
+    {
+      "type": "any",
+      "value": "http://localhost:4000",
+      "key": "gatewayUrl"
+    },
+    {
+      "type": "any",
+      "value": "http://localhost:3001",
+      "key": "customerServiceUrl"
+    },
+    {
+      "type": "any",
+      "value": "http://localhost:3002",
+      "key": "bookingServiceUrl"
+    },
+    {
+      "type": "any",
+      "value": "http://localhost:3003",
+      "key": "paymentServiceUrl"
+    },
+    {
+      "type": "any",
+      "value": "http://localhost:3004",
+      "key": "fareServiceUrl"
+    },
+    {
+      "type": "any",
+      "value": "http://localhost:3005",
+      "key": "locationServiceUrl"
+    },
+    {
+      "type": "any",
+      "value": "testuser001@example.com",
+      "key": "testEmail"
+    },
+    {
+      "type": "any",
+      "value": "password123",
+      "key": "testPassword"
+    },
+    {
+      "type": "any",
+      "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIyMTc3YWVkMi0xMDhiLTQyMGEtYTYwMi0yMDliNDJkNzg5ZGYiLCJlbWFpbCI6InBheXRlc3QxKzE3Nzk5Njg4NzgzNjVAZXhhbXBsZS5jb20iLCJpYXQiOjE3Nzk5Njg4ODEsImV4cCI6MTc4MDA1NTI4MX0.2ajTLmOFVzLZYrD8MPsBUXS7l73wtWLsp8Zjhv6f9ig",
+      "key": "token"
+    },
+    {
+      "type": "any",
+      "value": "2177aed2-108b-420a-a602-209b42d789df",
+      "key": "userId"
+    },
+    {
+      "type": "any",
+      "value": "",
+      "key": "notificationId"
+    },
+    {
+      "type": "any",
+      "value": "67c0b154-a6af-4bc6-b7f7-d29e60dbcc9b",
+      "key": "bookingId"
+    },
+    {
+      "type": "any",
+      "value": "",
+      "key": "cabReadyBookingId"
+    },
+    {
+      "type": "any",
+      "value": "paytest1+1779968878365@example.com",
+      "key": "payTestEmail"
+    },
+    {
+      "type": "any",
+      "value": "paytest2+1779968878365@example.com",
+      "key": "paySecondEmail"
+    },
+    {
+      "type": "any",
+      "value": "Password123!",
+      "key": "payTestPassword"
+    },
+    {
+      "type": "any",
+      "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJiMGJjNDQyNS0xZWUxLTQxNzQtOTFjMy03Mjc3MTEwYTk2YWMiLCJlbWFpbCI6InBheXRlc3QyKzE3Nzk5Njg4NzgzNjVAZXhhbXBsZS5jb20iLCJpYXQiOjE3Nzk5Njg4ODIsImV4cCI6MTc4MDA1NTI4Mn0.xU2REPDurdAzruWnRl6aZ2ZsvUEqgPnrsjH1yMUjRHg",
+      "key": "secondToken"
+    },
+    {
+      "type": "any",
+      "value": "6d3b8ce9-ea64-46dd-bb7d-500a9f672c07",
+      "key": "otherUserBookingId"
+    }
+  ],
+  "_postman_variable_scope": "environment",
+  "_postman_exported_at": "2026-05-28T11:48:08.562Z",
+  "_postman_exported_using": "Newman/6.2.2"
+}
