@@ -2,6 +2,19 @@
 
 This folder stores Postman collections, the shared environment file, and Newman-based testing documentation for the Cab Booking Platform API.
 
+## Quick Start — Run Location Service Tests with Newman
+
+**Prerequisites:** Customer Service (3001), Location Service (3005), Gateway (4000). Newman installed globally.
+
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+.\scripts\run-location-service-newman-tests.ps1
+```
+
+The script registers a fresh test user, runs the 11-request location normal flow (health, auth test, validation, save location, list, update label, weather call, delete wrong-owner 404, weather for saved location, delete, list after delete), and optionally runs the service-down test.
+
+A valid `WEATHER_API_KEY` must be set in `services/location-service/.env` for the weather test to pass. Without it the route returns 503 (the test is still counted but the weather assertion will fail).
+
 ## Quick Start — Run Payment Service Tests with Newman
 
 **Prerequisites:** All five services running — Customer (3001), Booking (3002), Payment (3003), Fare Estimation (3004), Gateway (4000). Newman installed globally.
@@ -72,8 +85,61 @@ The script runs the full forwarding suite first. If all tests pass, it pauses an
 | `cab-booking-fare-failure.postman_collection.json` | Fare Estimation service-down test — requires stopping fare-estimation-service | `run-fare-newman-tests.ps1` (prompted) |
 | `cab-booking-payment-service.postman_collection.json` | Payment Service normal flow via Gateway (9 requests, two-user setup) | `run-payment-service-newman-tests.ps1` |
 | `cab-booking-payment-failure.postman_collection.json` | Payment Service service-down test — requires stopping payment-service | `run-payment-service-newman-tests.ps1` (prompted) |
+| `cab-booking-location-service.postman_collection.json` | Location Service normal flow via Gateway (11 requests, CRUD + weather) | `run-location-service-newman-tests.ps1` |
+| `cab-booking-location-failure.postman_collection.json` | Location Service service-down test — requires stopping location-service | `run-location-service-newman-tests.ps1` (prompted) |
 
 Splitting the service-down and cab-ready tests into separate collections is necessary because Newman cannot stop external processes or wait interactively mid-run. The PowerShell script handles pauses and user confirmations between collections.
+
+### cab-booking-location-service.postman_collection.json
+
+Location Service tests via Gateway (port 4000). Run automatically via `run-location-service-newman-tests.ps1`.
+
+Folder `00` registers a fresh test user per run and logs in. Folders `01`–`10` run the location tests.
+
+```text
+00 - Setup - Register and Login via Gateway
+├── 00a - Register Test User     ← unique email generated per run
+└── 00b - Login and Save Token   ← token and userId saved to environment
+
+01 - Health Check
+└── GET /health — direct location service   ← 200
+
+02 - Auth Test
+└── POST /api/locations — no token          ← 401 from Gateway requireAuth
+
+03 - Validation
+└── POST /api/locations — missing label     ← 400
+
+04 - Save Location
+└── POST /api/locations — valid             ← 201; saves locationId to environment
+
+05 - List Locations
+└── GET /api/locations                      ← 200 array with saved location
+
+06 - Update Label
+└── PATCH /api/locations/{{locationId}}     ← 200 with updated label
+
+07 - Wrong Owner Delete
+└── DELETE /api/locations/{{otherUserId}}   ← 404
+
+08 - Get Weather
+└── GET /api/locations/{{locationId}}/weather  ← 200 with temp_c, condition
+
+09 - Delete Location
+└── DELETE /api/locations/{{locationId}}    ← 200
+
+10 - List After Delete
+└── GET /api/locations                      ← 200 empty array
+```
+
+### cab-booking-location-failure.postman_collection.json
+
+Service-down test. Run by `run-location-service-newman-tests.ps1` after prompting to stop Location Service.
+
+```text
+Location Failure Tests
+└── Location Service Down   ← expects 503 from Gateway, not a crash
+```
 
 ## Gateway vs Direct Service URLs
 
@@ -111,6 +177,8 @@ postman/
 ├── cab-booking-fare-failure.postman_collection.json                   Step 5 — Fare Estimation service-down test
 ├── cab-booking-payment-service.postman_collection.json                Step 6 — Payment Service normal flow (9 requests, two-user setup)
 ├── cab-booking-payment-failure.postman_collection.json                Step 6 — Payment Service service-down test
+├── cab-booking-location-service.postman_collection.json               Step 7 — Location Service normal flow (11 requests, CRUD + weather)
+├── cab-booking-location-failure.postman_collection.json               Step 7 — Location Service service-down test
 ├── cab-booking-local.postman_environment.json                         shared environment for all collections
 └── README.md
 ```

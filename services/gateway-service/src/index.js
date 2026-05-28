@@ -1,5 +1,6 @@
 // Entry point for gateway-service.
-// Initialises Express, mounts all service routes, and registers the global error handler.
+// Initialises Express, mounts all service routes (customer, booking, fare, payment, location),
+// and registers the global error handler.
 'use strict';
 
 require('dotenv').config();
@@ -10,6 +11,7 @@ const customerRoutes = require('./routes/customerRoutes');
 const bookingRoutes  = require('./routes/bookingRoutes');
 const fareRoutes     = require('./routes/fareRoutes');
 const paymentRoutes  = require('./routes/paymentRoutes');
+const locationRoutes = require('./routes/locationRoutes');
 const errorHandler   = require('./middleware/errorHandler');
 
 const app = express();
@@ -32,6 +34,9 @@ app.use('/api/fare', fareRoutes);
 
 // Payment service routes
 app.use('/api/payments',  paymentRoutes);
+
+// Location service routes
+app.use('/api/locations', locationRoutes);
 
 // Error handler — must be last
 app.use(errorHandler);

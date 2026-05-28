@@ -1,0 +1,97 @@
+{
+  "_": {
+    "postman_variable_scope": "environment"
+  },
+  "id": "bfbf9657-ae68-4246-8627-f14c16ae5210",
+  "name": "Cab Booking Local",
+  "values": [
+    {
+      "type": "any",
+      "value": "http://localhost:4000",
+      "key": "gatewayUrl"
+    },
+    {
+      "type": "any",
+      "value": "http://localhost:3001",
+      "key": "customerServiceUrl"
+    },
+    {
+      "type": "any",
+      "value": "http://localhost:3002",
+      "key": "bookingServiceUrl"
+    },
+    {
+      "type": "any",
+      "value": "http://localhost:3003",
+      "key": "paymentServiceUrl"
+    },
+    {
+      "type": "any",
+      "value": "http://localhost:3004",
+      "key": "fareServiceUrl"
+    },
+    {
+      "type": "any",
+      "value": "http://localhost:3005",
+      "key": "locationServiceUrl"
+    },
+    {
+      "type": "any",
+      "value": "testuser001@example.com",
+      "key": "testEmail"
+    },
+    {
+      "type": "any",
+      "value": "password123",
+      "key": "testPassword"
+    },
+    {
+      "type": "any",
+      "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NGU2ZWM2Mi1hYmM3LTQyZmEtYmI4Ny1iMzlhZDk0ZDA5ZWIiLCJlbWFpbCI6ImxvY3Rlc3QxKzE3Nzk5Nzk0ODI2MThAZXhhbXBsZS5jb20iLCJpYXQiOjE3Nzk5Nzk0ODQsImV4cCI6MTc4MDA2NTg4NH0.UdWig2XQzG7M6kUFiKwI0Qq11oOcWkVcyAE-yyf-ecw",
+      "key": "token"
+    },
+    {
+      "type": "any",
+      "value": "64e6ec62-abc7-42fa-bb87-b39ad94d09eb",
+      "key": "userId"
+    },
+    {
+      "type": "any",
+      "value": "",
+      "key": "notificationId"
+    },
+    {
+      "type": "any",
+      "value": "",
+      "key": "bookingId"
+    },
+    {
+      "type": "any",
+      "value": "",
+      "key": "cabReadyBookingId"
+    },
+    {
+      "type": "any",
+      "value": "loctest1+1779979482618@example.com",
+      "key": "locTestEmail"
+    },
+    {
+      "type": "any",
+      "value": "Password123!",
+      "key": "locTestPassword"
+    },
+    {
+      "type": "any",
+      "value": "f03d89a8-7c18-4a52-8a37-1bf14ce7d482",
+      "key": "locationId"
+    },
+    {
+      "type": "any",
+      "value": "4581b704-cd39-47b2-a34c-03956f6a069f",
+      "key": "locationId2"
+    }
+  ],
+  "_postman_variable_scope": "environment",
+  "_postman_exported_at": "2026-05-28T14:44:50.071Z",
+  "_postman_exported_using": "Newman/6.2.2"
+}

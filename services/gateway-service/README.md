@@ -4,7 +4,7 @@ The API Gateway is the single entry point for all client requests from the web-a
 
 ## Status
 
-Phase 6 — Payment Service forwarding: implemented. Newman tests written. Pending local test run.
+Phase 7 — Location Service forwarding: implemented. All six microservices are now forwarded.
 
 ## Local Port
 
@@ -104,11 +104,19 @@ The fare-estimation-service itself has no `requireAuth`. This protects the Gatew
 | `POST` | `/api/payments` | Payment Service `/payments` |
 | `GET` | `/api/payments/:bookingId` | Payment Service `/payments/:bookingId` |
 
+### Protected routes — Location Service (require `Authorization: Bearer <token>`)
+
+| Method | Gateway route | Forwards to |
+|---|---|---|
+| `POST` | `/api/locations` | Location Service `/locations` |
+| `GET` | `/api/locations` | Location Service `/locations` |
+| `PATCH` | `/api/locations/:id` | Location Service `/locations/:id` |
+| `DELETE` | `/api/locations/:id` | Location Service `/locations/:id` |
+| `GET` | `/api/locations/:id/weather` | Location Service `/locations/:id/weather` |
+
 ## Planned Routes (future phases)
 
-| Prefix | Forwards to |
-|---|---|
-| `/api/locations` | Location Service |
+None — all services are now forwarded.
 
 ## Axios Error Forwarding
 
@@ -171,6 +179,14 @@ Customer Service (3001), Fare Estimation (3004), and Gateway (4000) must be runn
 
 All five services must be running: Customer (3001), Booking (3002), Payment (3003), Fare Estimation (3004), and Gateway (4000). The script registers two fresh users, runs the 9-request normal flow (health, create booking, auth, validation, wrong-owner, valid payment, get payment, duplicate payment, booking in past), then optionally the service-down test.
 
+**Run Location Service tests (Phase 7):**
+
+```powershell
+.\scripts\run-location-service-newman-tests.ps1
+```
+
+Customer Service (3001), Location Service (3005), and Gateway (4000) must be running. The script registers a fresh user, runs the 10-request normal flow (health, auth, validation, add two locations, list, update label, fetch weather, delete one location, list after delete), then optionally the service-down test.
+
 **Run a single collection manually:**
 
 ```powershell
@@ -209,7 +225,7 @@ services/gateway-service/
 │       ├── bookingRoutes.js            forwards /api/bookings/* to booking-service (phase 4)
 │       ├── fareRoutes.js               forwards /api/fare to fare-estimation-service (phase 5)
 │       ├── paymentRoutes.js            forwards /api/payments/* to payment-service (phase 6)
-│       └── locationRoutes.js           stub (to be implemented)
+│       └── locationRoutes.js           forwards /api/locations/* to location-service (phase 7)
 ├── .env                                not committed
 ├── .env.example                        committed with placeholder values
 └── package.json

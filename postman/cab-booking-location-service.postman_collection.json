@@ -1,0 +1,440 @@
+{
+  "info": {
+    "name": "Cab Booking Location Service",
+    "description": "Normal-flow tests for location-service.\nCovers health, auth enforcement, input validation, adding two favourite locations, listing, updating a label, fetching live weather (WeatherAPI.com), deleting one location, and verifying the list shrinks.\nRun via scripts/run-location-service-newman-tests.ps1 or manually with Newman.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "00 Setup",
+      "description": "Register a fresh test user and login to get a JWT token. A unique email is generated per run so the collection is self-contained and independent of database state.",
+      "item": [
+        {
+          "name": "00a — Register test user",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Generate a unique email per run so each Newman run is independent.",
+                  "const ts = Date.now();",
+                  "pm.environment.set('locTestEmail',    'loctest1+' + ts + '@example.com');",
+                  "pm.environment.set('locTestPassword', 'Password123!');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201 — user registered', () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{gatewayUrl}}/api/customers/register",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"first_name\": \"Loc\",\n  \"surname\": \"Tester\",\n  \"email\": \"{{locTestEmail}}\",\n  \"password\": \"{{locTestPassword}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "00b — Login and save token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "",
+                  "const json = pm.response.json();",
+                  "",
+                  "pm.test('Response has token', () => pm.expect(json.token).to.be.a('string').and.not.empty);",
+                  "pm.test('Response has userId', () => pm.expect(json.userId).to.be.a('string').and.not.empty);",
+                  "",
+                  "// Save token and userId for all subsequent requests",
+                  "pm.environment.set('token',  json.token);",
+                  "pm.environment.set('userId', json.userId);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{gatewayUrl}}/api/customers/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{locTestEmail}}\",\n  \"password\": \"{{locTestPassword}}\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "01 Health Check",
+      "description": "Confirm location-service is running and responding correctly.",
+      "item": [
+        {
+          "name": "Health check — direct service",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "",
+                  "const json = pm.response.json();",
+                  "pm.test('Status ok', () => pm.expect(json.status).to.equal('ok'));",
+                  "pm.test('Correct service name', () => pm.expect(json.service).to.equal('location-service'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{locationServiceUrl}}/health"
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 Auth",
+      "description": "Confirm the gateway rejects location requests without a valid JWT.",
+      "item": [
+        {
+          "name": "Add location — no token, expect 401",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 401', () => pm.response.to.have.status(401));",
+                  "",
+                  "const json = pm.response.json();",
+                  "pm.test('Response has error property', () => pm.expect(json).to.have.property('error'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{gatewayUrl}}/api/locations",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"label\": \"Home\",\n  \"address\": \"Luqa Airport, Malta\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "03 Validation",
+      "description": "Confirm location-service rejects requests with missing required fields.",
+      "item": [
+        {
+          "name": "Add location — missing label, expect 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "",
+                  "const json = pm.response.json();",
+                  "pm.test('Error message mentions label', () =>",
+                  "  pm.expect(json.error).to.include('label')",
+                  ");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{gatewayUrl}}/api/locations",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"address\": \"Luqa, Malta\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "04 Add First Location",
+      "description": "Add a valid favourite location. Save the returned id as locationId for update and weather tests.",
+      "item": [
+        {
+          "name": "Add Home location — expect 201",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "",
+                  "const json = pm.response.json();",
+                  "",
+                  "pm.test('Response has id', () => pm.expect(json.id).to.be.a('string').and.not.empty);",
+                  "pm.test('label is Home', () => pm.expect(json.label).to.equal('Home'));",
+                  "pm.test('address is saved', () => pm.expect(json.address).to.be.a('string').and.not.empty);",
+                  "",
+                  "// Save locationId for tests 07, 08",
+                  "pm.environment.set('locationId', json.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{gatewayUrl}}/api/locations",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"label\": \"Home\",\n  \"address\": \"Luqa Airport, Malta\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "05 Add Second Location",
+      "description": "Add a second favourite location. Save the returned id as locationId2 for the delete test.",
+      "item": [
+        {
+          "name": "Add Work location — expect 201",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "",
+                  "const json = pm.response.json();",
+                  "",
+                  "pm.test('Response has id', () => pm.expect(json.id).to.be.a('string').and.not.empty);",
+                  "pm.test('label is Work', () => pm.expect(json.label).to.equal('Work'));",
+                  "",
+                  "// Save locationId2 for test 09 (delete)",
+                  "pm.environment.set('locationId2', json.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{gatewayUrl}}/api/locations",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"label\": \"Work\",\n  \"address\": \"Mcast College Poala, Malta\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "06 List Locations",
+      "description": "List all favourite locations for the authenticated user. Expect 2 items after adding Home and Work.",
+      "item": [
+        {
+          "name": "List locations — expect 200 with 2 items",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "",
+                  "const json = pm.response.json();",
+                  "",
+                  "pm.test('Response is an array', () => pm.expect(json).to.be.an('array'));",
+                  "pm.test('Array has 2 items', () => pm.expect(json.length).to.equal(2));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{gatewayUrl}}/api/locations"
+          }
+        }
+      ]
+    },
+    {
+      "name": "07 Update Location",
+      "description": "Update the label of the first location. Confirm the response contains the updated label.",
+      "item": [
+        {
+          "name": "Update Home label to Luqa Airport — expect 200",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "",
+                  "const json = pm.response.json();",
+                  "",
+                  "pm.test('label updated', () => pm.expect(json.label).to.equal('Luqa Airport'));",
+                  "pm.test('id unchanged', () =>",
+                  "  pm.expect(json.id).to.equal(pm.environment.get('locationId'))",
+                  ");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{gatewayUrl}}/api/locations/{{locationId}}",
+              "host": ["{{gatewayUrl}}"],
+              "path": ["api", "locations", "{{locationId}}"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"label\": \"Luqa Airport\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "08 Weather",
+      "description": "Fetch live weather for the first location from WeatherAPI.com. Confirms temp_c is a number and condition is a string. The weather_snapshot JSONB is stored in the DB (verify in Cloud SQL Studio).",
+      "item": [
+        {
+          "name": "Get weather for location — expect 200",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "",
+                  "const json = pm.response.json();",
+                  "",
+                  "pm.test('weather object present', () => pm.expect(json.weather).to.be.an('object'));",
+                  "pm.test('temp_c is a number', () => pm.expect(json.weather.temp_c).to.be.a('number'));",
+                  "pm.test('condition is a string', () => pm.expect(json.weather.condition).to.be.a('string'));",
+                  "pm.test('location label is present', () => pm.expect(json.location.label).to.be.a('string'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{gatewayUrl}}/api/locations/{{locationId}}/weather",
+              "host": ["{{gatewayUrl}}"],
+              "path": ["api", "locations", "{{locationId}}", "weather"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "09 Delete Location",
+      "description": "Delete the second location. Confirm the response returns a success message.",
+      "item": [
+        {
+          "name": "Delete Work location — expect 200",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "",
+                  "const json = pm.response.json();",
+                  "pm.test('Response has message property', () => pm.expect(json).to.have.property('message'));",
+                  "pm.test('Message confirms deletion', () =>",
+                  "  pm.expect(json.message.toLowerCase()).to.include('deleted')",
+                  ");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{gatewayUrl}}/api/locations/{{locationId2}}",
+              "host": ["{{gatewayUrl}}"],
+              "path": ["api", "locations", "{{locationId2}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "10 List After Delete",
+      "description": "Re-list favourite locations. Expect 1 item — only the Home location remains.",
+      "item": [
+        {
+          "name": "List locations after delete — expect 1 item",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "",
+                  "const json = pm.response.json();",
+                  "",
+                  "pm.test('Response is an array', () => pm.expect(json).to.be.an('array'));",
+                  "pm.test('Array has 1 item after delete', () => pm.expect(json.length).to.equal(1));",
+                  "",
+                  "// Confirm the remaining location is the one that was NOT deleted",
+                  "const locationId = pm.environment.get('locationId');",
+                  "pm.test('Remaining location is the Home location', () => {",
+                  "  pm.expect(json[0].id).to.equal(locationId);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{gatewayUrl}}/api/locations"
+          }
+        }
+      ]
+    }
+  ]
+}
