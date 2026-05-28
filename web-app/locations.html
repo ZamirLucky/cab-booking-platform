@@ -3,16 +3,221 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Cab Booking - Favourite Locations</title>
+  <title>Cab Booking — Favourite Locations</title>
+  <!-- Bootstrap CSS -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" />
   <link rel="stylesheet" href="css/custom.css" />
 </head>
-<body>
-  <!-- TODO: Navbar -->
-  <!-- TODO: Form to save a new favourite location (label, lat, lng) -->
-  <!-- TODO: List of saved locations with delete action -->
+<body class="bg-light">
+
+  <!-- Navbar -->
+  <nav class="navbar navbar-expand-md navbar-dark bg-dark">
+    <div class="container">
+      <a class="navbar-brand fw-bold" href="dashboard.html">🚖 Cab Booking</a>
+      <button class="navbar-toggler" type="button"
+              data-bs-toggle="collapse" data-bs-target="#main-nav">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="main-nav">
+        <ul class="navbar-nav ms-auto align-items-md-center gap-md-2">
+          <li class="nav-item"><a class="nav-link" href="bookings.html">Bookings</a></li>
+          <li class="nav-item"><a class="nav-link active" href="locations.html">Locations</a></li>
+          <li class="nav-item"><a class="nav-link" href="notifications.html">Notifications</a></li>
+          <li class="nav-item"><a class="nav-link" href="payment.html">Payments</a></li>
+          <li class="nav-item">
+            <button class="btn btn-outline-light btn-sm" onclick="handleLogout()">Logout</button>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container py-4">
+
+    <h2 class="mb-4">Favourite Locations</h2>
+
+    <!-- Global error alert -->
+    <div id="loc-error" class="alert alert-danger d-none" role="alert"></div>
+
+    <!-- Add new location form -->
+    <div class="card shadow-sm mb-4">
+      <div class="card-header bg-primary text-white fw-semibold">Add New Location</div>
+      <div class="card-body">
+        <!-- Bootstrap needs-validation: inline row layout -->
+        <form id="add-form" novalidate>
+          <div class="row g-3 align-items-end">
+
+            <!-- Label -->
+            <div class="col-md-3">
+              <label for="add-label" class="form-label">Label</label>
+              <input type="text" class="form-control" id="add-label"
+                     placeholder="e.g. Home" required />
+              <div class="invalid-feedback">Label is required.</div>
+            </div>
+
+            <!-- Address (used for WeatherAPI lookup) -->
+            <div class="col-md-7">
+              <label for="add-address" class="form-label">Address</label>
+              <input type="text" class="form-control" id="add-address"
+                     placeholder="e.g. Valletta, Malta" required />
+              <div class="invalid-feedback">Address is required.</div>
+            </div>
+
+            <!-- Submit -->
+            <div class="col-md-2">
+              <button type="submit" class="btn btn-primary w-100">Add</button>
+            </div>
+
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Locations list: populated by loadLocations() in locations.js -->
+    <div id="locations-list">
+      <p class="text-muted">Loading…</p>
+    </div>
+
+  </div><!-- /container -->
+
+  <!-- Edit location modal -->
+  <div class="modal fade" id="edit-modal" tabindex="-1" aria-labelledby="edit-modal-label">
+    <div class="modal-dialog">
+      <div class="modal-content">
+
+        <div class="modal-header">
+          <h5 class="modal-title" id="edit-modal-label">Edit Location</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+
+        <div class="modal-body">
+          <!-- Modal-level error alert -->
+          <div id="edit-error" class="alert alert-danger d-none" role="alert"></div>
+
+          <!-- Edit form: Bootstrap needs-validation -->
+          <form id="edit-form" novalidate>
+            <!-- Hidden ID passed to updateLocation() -->
+            <input type="hidden" id="edit-loc-id" />
+
+            <!-- Label -->
+            <div class="mb-3">
+              <label for="edit-loc-label" class="form-label">Label</label>
+              <input type="text" class="form-control" id="edit-loc-label" required />
+              <div class="invalid-feedback">Label is required.</div>
+            </div>
+
+            <!-- Address -->
+            <div class="mb-3">
+              <label for="edit-loc-address" class="form-label">Address</label>
+              <input type="text" class="form-control" id="edit-loc-address" required />
+              <div class="invalid-feedback">Address is required.</div>
+            </div>
+
+          </form>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <!-- Submit button references the form by id (outside modal-body) -->
+          <button type="submit" form="edit-form" class="btn btn-primary">Save Changes</button>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Bootstrap JS bundle -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script src="js/config.js"></script>
   <script src="js/auth.js"></script>
   <script src="js/locations.js"></script>
+  <script>
+    // Guard: redirect to login if no token
+    document.addEventListener('DOMContentLoaded', () => {
+      guardPage();
+      loadLocations();
+    });
+
+    // Add location form submit
+    document.getElementById('add-form').addEventListener('submit', async function (e) {
+      e.preventDefault();
+      clearLocError();
+
+      // Bootstrap validation
+      this.classList.add('was-validated');
+      if (!this.checkValidity()) return;
+
+      const payload = {
+        label:   document.getElementById('add-label').value.trim(),
+        address: document.getElementById('add-address').value.trim()
+      };
+
+      try {
+        // POST new location via addLocation() from locations.js
+        const res  = await addLocation(payload);
+        const data = await res.json();
+
+        if (!res.ok) {
+          showLocError(data.error || 'Failed to save location.');
+          return;
+        }
+
+        // Reset form and refresh the list
+        this.classList.remove('was-validated');
+        this.reset();
+        await loadLocations();
+      } catch {
+        showLocError('Cannot reach the server.');
+      }
+    });
+
+    // Edit form submit
+    document.getElementById('edit-form').addEventListener('submit', async function (e) {
+      e.preventDefault();
+
+      // Bootstrap validation
+      this.classList.add('was-validated');
+      if (!this.checkValidity()) return;
+
+      const editError = document.getElementById('edit-error');
+      editError.classList.add('d-none');
+
+      const id      = document.getElementById('edit-loc-id').value;
+      const payload = {
+        label:   document.getElementById('edit-loc-label').value.trim(),
+        address: document.getElementById('edit-loc-address').value.trim()
+      };
+
+      try {
+        // PATCH via updateLocation() from locations.js
+        const res  = await updateLocation(id, payload);
+        const data = await res.json();
+
+        if (!res.ok) {
+          editError.textContent = data.error || 'Failed to update location.';
+          editError.classList.remove('d-none');
+          return;
+        }
+
+        // Close modal, reset, and reload list
+        bootstrap.Modal.getInstance(document.getElementById('edit-modal')).hide();
+        this.classList.remove('was-validated');
+        await loadLocations();
+      } catch {
+        editError.textContent = 'Cannot reach the server.';
+        editError.classList.remove('d-none');
+      }
+    });
+
+    // --- Page-level error helpers ---
+    function showLocError(msg) {
+      const el = document.getElementById('loc-error');
+      el.textContent = msg; el.classList.remove('d-none');
+    }
+    function clearLocError() {
+      const el = document.getElementById('loc-error');
+      el.textContent = ''; el.classList.add('d-none');
+    }
+  </script>
 </body>
 </html>

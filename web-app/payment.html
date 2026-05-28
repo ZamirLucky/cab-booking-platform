@@ -3,17 +3,179 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Cab Booking - Payment</title>
+  <title>Cab Booking — Payment</title>
+  <!-- Bootstrap CSS -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" />
   <link rel="stylesheet" href="css/custom.css" />
 </head>
-<body>
-  <!-- TODO: Navbar -->
-  <!-- TODO: Payment form for a booking (booking id, amount display) -->
-  <!-- TODO: Confirm payment button -->
-  <!-- TODO: Payment history table -->
+<body class="bg-light">
+
+  <!-- Navbar -->
+  <nav class="navbar navbar-expand-md navbar-dark bg-dark">
+    <div class="container">
+      <a class="navbar-brand fw-bold" href="dashboard.html">🚖 Cab Booking</a>
+      <button class="navbar-toggler" type="button"
+              data-bs-toggle="collapse" data-bs-target="#main-nav">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="main-nav">
+        <ul class="navbar-nav ms-auto align-items-md-center gap-md-2">
+          <li class="nav-item"><a class="nav-link" href="bookings.html">Bookings</a></li>
+          <li class="nav-item"><a class="nav-link" href="locations.html">Locations</a></li>
+          <li class="nav-item"><a class="nav-link" href="notifications.html">Notifications</a></li>
+          <li class="nav-item"><a class="nav-link active" href="payment.html">Payments</a></li>
+          <li class="nav-item">
+            <button class="btn btn-outline-light btn-sm" onclick="handleLogout()">Logout</button>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container py-4" style="max-width: 680px;">
+
+    <h2 class="mb-4">Payment</h2>
+
+    <!-- Global error alert -->
+    <div id="pay-error" class="alert alert-danger d-none" role="alert"></div>
+
+    <!-- Pay panel: shown when a booking_id is known but not yet paid -->
+    <div id="pay-panel" class="d-none mb-4">
+      <div class="card shadow-sm">
+        <div class="card-header bg-primary text-white fw-semibold">Confirm Payment</div>
+        <div class="card-body">
+          <p class="mb-1">
+            <span class="text-muted">Booking ID:</span>
+            <!-- Pre-filled from URL ?id= param -->
+            <code id="pay-booking-id" class="user-select-all"></code>
+          </p>
+          <p class="text-muted small mt-2">
+            The fare will be calculated using the multipliers for your cab type,
+            passenger count, and any available loyalty discount.
+          </p>
+          <!-- Pay button: disabled during processing -->
+          <button id="pay-btn" class="btn btn-success">Pay Now</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Lookup panel: shown when no ?id= is in the URL -->
+    <div id="lookup-panel" class="d-none mb-4">
+      <div class="card shadow-sm">
+        <div class="card-header bg-secondary text-white fw-semibold">Look Up Payment</div>
+        <div class="card-body">
+          <!-- Manual lookup: Bootstrap needs-validation -->
+          <form id="lookup-form" novalidate>
+            <div class="mb-3">
+              <label for="lookup-id" class="form-label">Booking ID</label>
+              <input type="text" class="form-control" id="lookup-id"
+                     placeholder="Paste booking UUID here" required />
+              <div class="invalid-feedback">Booking ID is required.</div>
+              <div class="form-text">
+                Or navigate here via the <a href="bookings.html">Pay</a> button on a completed booking.
+              </div>
+            </div>
+            <button type="submit" class="btn btn-secondary">Look Up</button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- Payment summary: shown after POST /api/payments or when booking is already paid -->
+    <div id="payment-summary" class="d-none"></div>
+
+  </div><!-- /container -->
+
+  <!-- Bootstrap JS bundle -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script src="js/config.js"></script>
   <script src="js/auth.js"></script>
   <script src="js/payment.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      guardPage();
+
+      // Read optional ?id= param passed from bookings.html Pay link
+      const bookingId = new URLSearchParams(window.location.search).get('id');
+
+      if (bookingId) {
+        await initWithBookingId(bookingId);
+      } else {
+        // No URL param — let the user enter a booking ID manually
+        document.getElementById('lookup-panel').classList.remove('d-none');
+      }
+    });
+
+    // Initialise page for a known booking ID
+    // Checks for an existing payment first; shows Pay panel if not yet paid.
+    async function initWithBookingId(bookingId) {
+      const payError = document.getElementById('pay-error');
+      payError.classList.add('d-none');
+
+      try {
+        const existing = await loadPayment(bookingId);
+
+        if (existing) {
+          // Already paid — show summary only, no action needed
+          renderPaymentSummary(existing);
+        } else {
+          // Not yet paid — show confirm panel with booking ID
+          document.getElementById('pay-booking-id').textContent = bookingId;
+          document.getElementById('pay-panel').classList.remove('d-none');
+
+          document.getElementById('pay-btn').addEventListener('click', () => processPayment(bookingId));
+        }
+      } catch (err) {
+        payError.textContent = err.message || 'Could not load payment details.';
+        payError.classList.remove('d-none');
+      }
+    }
+
+    // Process a new payment
+    // Calls submitPayment(), hides the pay panel, and renders the breakdown on success.
+    async function processPayment(bookingId) {
+      const payError = document.getElementById('pay-error');
+      const payBtn   = document.getElementById('pay-btn');
+      payError.classList.add('d-none');
+
+      // Disable button to prevent double-submission
+      payBtn.disabled    = true;
+      payBtn.textContent = 'Processing…';
+
+      try {
+        const res  = await submitPayment(bookingId);
+        const data = await res.json();
+
+        if (!res.ok) {
+          payError.textContent = data.error || 'Payment failed. Please try again.';
+          payError.classList.remove('d-none');
+          payBtn.disabled    = false;
+          payBtn.textContent = 'Pay Now';
+          return;
+        }
+
+        // Success: hide pay panel and display confirmed summary
+        document.getElementById('pay-panel').classList.add('d-none');
+        renderPaymentSummary(data);
+      } catch {
+        payError.textContent = 'Cannot reach the server.';
+        payError.classList.remove('d-none');
+        payBtn.disabled    = false;
+        payBtn.textContent = 'Pay Now';
+      }
+    }
+
+    // Manual lookup form
+    // Hides the lookup panel and delegates to initWithBookingId().
+    document.getElementById('lookup-form').addEventListener('submit', async function (e) {
+      e.preventDefault();
+      this.classList.add('was-validated');
+      if (!this.checkValidity()) return;
+
+      const bookingId = document.getElementById('lookup-id').value.trim();
+      document.getElementById('lookup-panel').classList.add('d-none');
+      await initWithBookingId(bookingId);
+    });
+  </script>
 </body>
 </html>
