@@ -10,7 +10,7 @@ npm-debug.log*
 .vscode/settings.json
 .claude/
 
-
+AGENTS.md
 CLAUDE.md
-README.md
+
 docs/

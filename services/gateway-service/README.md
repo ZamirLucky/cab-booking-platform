@@ -1,23 +1,23 @@
-# gateway-service
+# Gateway Service
 
-The API Gateway is the single entry point for all client requests from the web-app. It verifies JWT tokens on protected routes and forwards requests to the appropriate downstream microservice using Axios.
+The frontend-facing entry point for the Cab Booking Platform. It verifies JWTs on protected routes and forwards requests to the appropriate microservice using Axios. The frontend does not call the microservices directly.
 
-## Status
+**Port:** `4000`
 
-Phase 4 — Customer Service and Booking Service forwarding: implemented and tested locally.
+---
 
-## Local Port
+## Quick Start
 
-```text
-4000
-```
+From the repository root:
 
-Run command:
-
-```powershell
-cd services\gateway-service
+```bash
+cd services/gateway-service
+npm ci
+cp .env.example .env
 npm run dev
 ```
+
+Downstream services must also be running before their forwarded routes can be used.
 
 Expected output:
 
@@ -25,169 +25,181 @@ Expected output:
 gateway-service running on port 4000
 ```
 
+Health check:
+
+```bash
+curl http://localhost:4000/health
+# { "status": "ok", "service": "gateway-service" }
+```
+
+Use `npm start` to run without nodemon.
+
+---
+
 ## Environment Variables
 
-Copy `.env.example` to `.env` and fill in real values. Never commit `.env`.
-
-| Variable | Description |
-|---|---|
-| `PORT` | Gateway port — set to `4000` |
-| `JWT_SECRET` | Must match the JWT_SECRET in all other services exactly |
-| `CUSTOMER_SERVICE_URL` | `http://localhost:3001` for local development |
-| `BOOKING_SERVICE_URL` | `http://localhost:3002` for local development |
-| `PAYMENT_SERVICE_URL` | `http://localhost:3003` for local development |
-| `FARE_SERVICE_URL` | `http://localhost:3004` for local development |
-| `LOCATION_SERVICE_URL` | `http://localhost:3005` for local development |
+| Variable                 | Required | Description                                                       |
+| ------------------------ | -------- | ----------------------------------------------------------------- |
+| `PORT`                 | No       | Gateway port; defaults to`4000`                                 |
+| `JWT_SECRET`           | Yes      | Must match Customer Service and the protected downstream services |
+| `CUSTOMER_SERVICE_URL` | Yes      | `http://localhost:3001` locally                                 |
+| `BOOKING_SERVICE_URL`  | Yes      | `http://localhost:3002` locally                                 |
+| `PAYMENT_SERVICE_URL`  | Yes      | `http://localhost:3003` locally                                 |
+| `FARE_SERVICE_URL`     | Yes      | `http://localhost:3004` locally                                 |
+| `LOCATION_SERVICE_URL` | Yes      | `http://localhost:3005` locally                                 |
 
 ## Middleware
 
-| Middleware | Applied to | Purpose |
-|---|---|---|
-| `cors` | all routes | allows cross-origin requests from the frontend |
-| `express.json` | all routes | parses JSON request bodies |
-| `requireAuth` | protected routes only | verifies JWT before forwarding |
-| `forwardAuthHeader` | protected routes only | copies Authorization header to `req.authHeader` |
-| `errorHandler` | all routes (mounted last) | returns consistent JSON error responses |
+| Middleware            | Applied to       | Purpose                                                          |
+| --------------------- | ---------------- | ---------------------------------------------------------------- |
+| `cors`              | All routes       | Allows requests from the browser frontend                        |
+| `express.json`      | All routes       | Parses JSON request bodies                                       |
+| `requireAuth`       | Protected routes | Verifies`Authorization: Bearer <token>`                        |
+| `forwardAuthHeader` | Protected routes | Stores the header in`req.authHeader` for downstream forwarding |
+| `errorHandler`      | Mounted last     | Returns`{ "error": "..." }` for handled application errors     |
 
-### Why `requireAuth` runs at the Gateway
+Protected Customer, Booking, Payment, and Location requests are verified by both the Gateway and the downstream microservice. Fare requests are protected at the Gateway only because Payment Service also calls Fare Estimation Service internally without a user token.
 
-The Gateway is the first service the frontend contacts. Verifying the token at the Gateway prevents invalid tokens from ever reaching downstream microservices, reducing unnecessary traffic.
+---
 
-### Why microservices also verify JWT independently
+## Routes
 
-Cloud Run gives each deployed service its own public HTTPS URL. A caller who knows the direct URL of a microservice could bypass the Gateway entirely. Each microservice runs its own `requireAuth` so protected routes remain secure regardless of how they are called. This is documented in DECISION_LOG D-007.
+### Health
 
-## Implemented Routes
+| Method | Gateway path | Auth | Forwards to            |
+| ------ | ------------ | ---- | ---------------------- |
+| GET    | `/health`  | None | Handled by the Gateway |
 
-### Public routes
+### Customer Service
 
-| Method | Gateway route | Forwards to |
-|---|---|---|
-| `GET` | `/health` | — (local response) |
-| `POST` | `/api/customers/register` | Customer Service `/register` |
-| `POST` | `/api/customers/login` | Customer Service `/login` |
+| Method | Gateway path                              | Auth   | Forwards to                       |
+| ------ | ----------------------------------------- | ------ | --------------------------------- |
+| POST   | `/api/customers/register`               | None   | `POST /register`                |
+| POST   | `/api/customers/login`                  | None   | `POST /login`                   |
+| GET    | `/api/customers/account`                | Bearer | `GET /account`                  |
+| GET    | `/api/customers/notifications`          | Bearer | `GET /notifications`            |
+| PATCH  | `/api/customers/notifications/:id/read` | Bearer | `PATCH /notifications/:id/read` |
 
-### Protected routes — Customer Service (require `Authorization: Bearer <token>`)
+### Booking Service
 
-| Method | Gateway route | Forwards to |
-|---|---|---|
-| `GET` | `/api/customers/account` | Customer Service `/account` |
-| `GET` | `/api/customers/notifications` | Customer Service `/notifications` |
-| `PATCH` | `/api/customers/notifications/:id/read` | Customer Service `/notifications/:id/read` |
+| Method | Gateway path                 | Auth   | Forwards to                    |
+| ------ | ---------------------------- | ------ | ------------------------------ |
+| POST   | `/api/bookings`            | Bearer | `POST /bookings`             |
+| GET    | `/api/bookings/current`    | Bearer | `GET /bookings/current`      |
+| GET    | `/api/bookings/past`       | Bearer | `GET /bookings/past`         |
+| GET    | `/api/bookings/:id`        | Bearer | `GET /bookings/:id`          |
+| PATCH  | `/api/bookings/:id/status` | Bearer | `PATCH /bookings/:id/status` |
 
-### Protected routes — Booking Service (require `Authorization: Bearer <token>`)
+### Payment Service
 
-| Method | Gateway route | Forwards to |
-|---|---|---|
-| `POST` | `/api/bookings` | Booking Service `/bookings` |
-| `GET` | `/api/bookings/current` | Booking Service `/bookings/current` |
-| `GET` | `/api/bookings/past` | Booking Service `/bookings/past` |
-| `GET` | `/api/bookings/:id` | Booking Service `/bookings/:id` |
-| `PATCH` | `/api/bookings/:id/status` | Booking Service `/bookings/:id/status` |
+| Method | Gateway path                 | Auth   | Forwards to                  |
+| ------ | ---------------------------- | ------ | ---------------------------- |
+| POST   | `/api/payments`            | Bearer | `POST /payments`           |
+| GET    | `/api/payments/:bookingId` | Bearer | `GET /payments/:bookingId` |
 
-**Route path note:** The booking router is mounted at `/api/bookings`. Route definitions use only the suffix after the mount point (`/`, `/current`, `/:id`, etc.) — not the full path. Repeating `/bookings` in the route definition would produce a double-prefix path like `POST /api/bookings/bookings` and cause 404 errors.
+### Fare Estimation Service
 
-## Planned Routes (future phases)
+| Method | Gateway path                                      | Auth   | Forwards to                         |
+| ------ | ------------------------------------------------- | ------ | ----------------------------------- |
+| GET    | `/api/fare?start_location=...&end_location=...` | Bearer | `GET /fare` with query parameters |
 
-| Prefix | Forwards to |
-|---|---|
-| `/api/payments` | Payment Service |
-| `/api/fare` | Fare Estimation Service |
-| `/api/locations` | Location Service |
+### Location Service
 
-## Axios Error Forwarding
+| Method | Gateway path                   | Auth   | Forwards to                    |
+| ------ | ------------------------------ | ------ | ------------------------------ |
+| POST   | `/api/locations`             | Bearer | `POST /locations`            |
+| GET    | `/api/locations`             | Bearer | `GET /locations`             |
+| PATCH  | `/api/locations/:id`         | Bearer | `PATCH /locations/:id`       |
+| DELETE | `/api/locations/:id`         | Bearer | `DELETE /locations/:id`      |
+| GET    | `/api/locations/:id/weather` | Bearer | `GET /locations/:id/weather` |
 
-All route handlers use a shared `handleAxiosError` helper:
+Request bodies and JSON responses are passed between the client and the selected service. See each service README for its request fields and response formats.
 
-| Condition | Gateway response |
-|---|---|
-| Downstream returned 4xx or 5xx | Forward exact status and body unchanged |
-| Service is unreachable (`ECONNREFUSED` or `ENOTFOUND`) | `503 { "error": "Service temporarily unavailable" }` |
-| Unexpected error | `next(err)` — reaches global `errorHandler` |
+### Authenticated Request Example
 
-The `err.response` check is required. Without it, a 404 or 401 from a downstream service would be treated as an unexpected error and returned to the client as a 500.
-
-## Running Tests — Newman (fast, repeatable)
-
-Newman is the command-line Postman runner. It executes all requests in sequence automatically.
-
-**Start both services first:**
-
-```powershell
-# Terminal 1
-cd services\customer-service
-npm run dev
-
-# Terminal 2
-cd services\gateway-service
-npm run dev
+```bash
+curl http://localhost:4000/api/bookings/current \
+  -H "Authorization: Bearer <token>"
 ```
 
-**Allow scripts and run:**
+---
+
+## Error Handling
+
+Each router uses the same local `handleAxiosError` pattern:
+
+| Condition                           | Gateway response                                       |
+| ----------------------------------- | ------------------------------------------------------ |
+| Downstream service returns an error | Forwards its HTTP status and JSON data                 |
+| `ECONNREFUSED` or `ENOTFOUND`   | `503 { "error": "Service temporarily unavailable" }` |
+| Unexpected error                    | Passes to`errorHandler`, normally returning `500`  |
+
+Handled Gateway and downstream failures return JSON. Unknown routes currently use Express's default 404 response.
+
+---
+
+## Gateway Structure
+
+```text
+src/
+├── middleware/
+│   ├── requireAuth.js        Verifies JWTs before forwarding
+│   ├── forwardAuthHeader.js  Prepares the Authorization header
+│   └── errorHandler.js       Handles unexpected application errors
+├── routes/
+│   ├── customerRoutes.js     /api/customers/*
+│   ├── bookingRoutes.js      /api/bookings/*
+│   ├── paymentRoutes.js      /api/payments/*
+│   ├── fareRoutes.js         /api/fare
+│   └── locationRoutes.js     /api/locations/*
+└── index.js                  Express setup and route mounting
+```
+
+---
+
+## Testing
+
+The Gateway Newman workflow covers customer forwarding, Gateway-level authentication, and the `503` response when Customer Service is unavailable.
+
+Prerequisites:
+
+- Gateway Service on port `4000`
+- Customer Service on port `3001`
+- Newman installed globally
+
+Run from the repository root:
 
 ```powershell
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 .\scripts\run-gateway-newman-tests.ps1
 ```
 
-The script runs the 9-request forwarding suite. If all pass, it pauses and asks whether to run the service-down test. Answer `Y` after stopping Customer Service (Gateway must stay running).
-
-**Run Booking Service tests (Phase 4):**
+Booking routes are covered by:
 
 ```powershell
 .\scripts\run-booking-newman-tests.ps1
 ```
 
-All three services must be running (Customer on 3001, Booking on 3002, Gateway on 4000). The script runs the 12-request normal flow, then optionally the service-down test and cab-ready event test.
+See the [Postman documentation](../../postman/README.md) for collection details and expected results.
 
-**Run a single collection manually:**
+---
 
-```powershell
-newman run postman/cab-booking-gateway-customer-forwarding.postman_collection.json `
-  -e postman/cab-booking-local.postman_environment.json `
-  --reporters cli --verbose
-```
+## Current Development Limitations
 
-## Test Instructions (Postman UI — manual alternative)
+- `cors()` currently allows all origins.
+- Gateway Axios requests do not currently set a timeout.
+- Required environment variables are not validated during startup.
+- Unknown routes do not yet use the JSON error format.
 
-Use environment `Cab Booking Local` with `gatewayUrl = http://localhost:4000`. Both services must be running.
+---
 
-1. `GET {{gatewayUrl}}/health` → `200 { "status": "ok", "service": "gateway-service" }`
-2. `POST {{gatewayUrl}}/api/customers/register` → `201`
-3. `POST {{gatewayUrl}}/api/customers/login` → `200` with `token`
-4. `GET {{gatewayUrl}}/api/customers/account` (no Authorization) → `401` — Gateway's own `requireAuth` rejects; Customer Service never receives this
-5. `GET {{gatewayUrl}}/api/customers/account` (with token) → `200`
-6. `GET {{gatewayUrl}}/api/customers/notifications` (with token) → `200`
-7. `PATCH {{gatewayUrl}}/api/customers/notifications/:id/read` (with token) → `200`
-8. Stop Customer Service. `GET {{gatewayUrl}}/api/customers/account` → `503` — Gateway must not crash
+## Deployment
 
-Test 4 confirms Gateway-level auth enforcement. Test 8 confirms the `ECONNREFUSED` handling in `handleAxiosError`.
+The Dockerfile is currently a placeholder. Google Cloud Run deployment and production CORS configuration are not yet complete.
 
-## Files
+---
 
-```text
-services/gateway-service/
-├── src/
-│   ├── index.js                        entry point — middleware and route mounting
-│   ├── middleware/
-│   │   ├── errorHandler.js             global JSON error handler
-│   │   ├── requireAuth.js              JWT verification middleware
-│   │   └── forwardAuthHeader.js        copies Authorization header to req.authHeader
-│   └── routes/
-│       ├── customerRoutes.js           forwards /api/customers/* to customer-service
-│       ├── bookingRoutes.js            forwards /api/bookings/* to booking-service (phase 4)
-│       ├── paymentRoutes.js            stub (to be implemented)
-│       ├── fareRoutes.js               stub (to be implemented)
-│       └── locationRoutes.js           stub (to be implemented)
-├── .env                                not committed
-├── .env.example                        committed with placeholder values
-└── package.json
-```
+## Documentation and Sources
 
-## Sources
-
-- DECISION_LOG D-005: Gateway as single API entry point
-- DECISION_LOG D-007: dual JWT verification rationale
-- Assignment brief: Task 7 (web app through Gateway API), Task 11 (hosted communication)
-- Express.js routing documentation: https://expressjs.com/en/guide/routing.html
-- Axios HTTP client documentation: https://axios-http.com/docs/intro
+- [Repository README](../../README.md)
+- [Postman and Newman Tests](../../postman/README.md)

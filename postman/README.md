@@ -1,678 +1,124 @@
-# postman/
+# Postman API Tests
 
-This folder stores Postman collections, the shared environment file, and Newman-based testing documentation for the Cab Booking Platform API.
+This folder contains the Postman collections and local environment used to test the Cab Booking Platform. Newman runs the main integration workflows from the command line.
 
-## Quick Start — Run Booking Service Tests with Newman
+## Quick Start
 
-Newman is the command-line runner for Postman collections.
+Run all commands from the repository root.
 
-**Prerequisites:** Customer Service on port 3001, Booking Service on port 3002, Gateway on port 4000, Newman installed globally.
+### Prerequisites
+
+| Workflow                | Services that must be running                                                   |
+| ----------------------- | ------------------------------------------------------------------------------- |
+| Gateway customer tests  | Customer Service (`3001`) and Gateway (`4000`)                              |
+| Booking and event tests | Customer Service (`3001`), Booking Service (`3002`), and Gateway (`4000`) |
+
+Install Newman once if it is not already available:
 
 ```powershell
+npm install -g newman
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
-.\scripts\run-booking-newman-tests.ps1
 ```
 
-The script registers a fresh test user, runs the 12-request booking normal flow, and prompts for the optional service-down and cab-ready event tests.
-
-## Quick Start — Run Gateway Tests with Newman
-
-Newman is the command-line runner for Postman collections. It runs all requests in sequence automatically and prints pass/fail results.
-
-**Prerequisites:** Customer Service running on port 3001, Gateway running on port 4000, Newman installed globally.
+Run the Gateway customer workflow:
 
 ```powershell
-# Install Newman (one time only — already installed at project root)
-npm install -g newman
-
-# Allow script execution for this terminal session only
-Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
-
-# Run Gateway forwarding tests + optional service-down test
 .\scripts\run-gateway-newman-tests.ps1
 ```
 
-The script runs the full forwarding suite first. If all tests pass, it pauses and asks whether to run the service-down test. Answer `Y` after stopping Customer Service.
+Run the booking and event workflow:
 
-## Why Collections Are Split
+```powershell
+.\scripts\run-booking-newman-tests.ps1
+```
 
-| Collection file | Purpose | Run with |
-|---|---|---|
-| `cab-booking-customer-service.postman_collection.json` | Direct Customer Service tests (port 3001) | Postman UI or Newman manually |
-| `cab-booking-gateway-customer-forwarding.postman_collection.json` | Gateway forwarding tests — Customer Service normal flow (9 requests) | `run-gateway-newman-tests.ps1` |
-| `cab-booking-gateway-failure.postman_collection.json` | Gateway service-down test — requires stopping Customer Service first | `run-gateway-newman-tests.ps1` (prompted) |
-| `cab-booking-booking-service.postman_collection.json` | Booking Service normal flow via Gateway (12 requests) | `run-booking-newman-tests.ps1` |
-| `cab-booking-booking-failure.postman_collection.json` | Booking Service service-down test — requires stopping Booking Service | `run-booking-newman-tests.ps1` (prompted) |
-| `cab-booking-cab-ready-event.postman_collection.json` | Cab-ready event test — creates a booking, waits 3 minutes, checks notification | `run-booking-newman-tests.ps1` (prompted) |
+Each runner executes its normal flow first. It then prompts for relevant optional tests:
 
-Splitting the service-down and cab-ready tests into separate collections is necessary because Newman cannot stop external processes or wait interactively mid-run. The PowerShell script handles pauses and user confirmations between collections.
+- Service-down tests require the named microservice to be stopped while the Gateway remains running.
+- The cab-ready test waits 190 seconds for the delayed notification. Keep Booking Service running during the wait.
+- The discount test registers a fresh user, completes four bookings, and checks that only one discount notification is created.
 
-## Gateway vs Direct Service URLs
+## Expected Results
 
-From phase 3 onwards, all integration tests use the **Gateway at `http://localhost:4000`**, not Customer Service directly at `http://localhost:3001`.
+| Test                 | Expected result                                                                   |
+| -------------------- | --------------------------------------------------------------------------------- |
+| Gateway normal flow  | 9 requests pass through the Gateway                                               |
+| Gateway service-down | Gateway returns`503` when Customer Service is unavailable                       |
+| Booking normal flow  | 12 requests pass, including validation and booking status checks                  |
+| Booking service-down | Gateway returns`503` when Booking Service is unavailable                        |
+| Cab-ready event      | A`cab_ready` notification appears after approximately 3 minutes                 |
+| Discount event       | One discount notification appears after ride 3 and is not duplicated after ride 4 |
 
-The Gateway is the single entry point the frontend uses. Testing via the Gateway proves the full request path: JWT verification at the Gateway, Axios forwarding, and the downstream service response. Testing Customer Service at port 3001 directly is only for isolated service-level debugging.
+## Collections
 
-Use `{{gatewayUrl}}` for Gateway integration tests and `{{customerServiceUrl}}` only when testing the customer-service in isolation.
+| File                                                                | Requests | Purpose                                        |
+| ------------------------------------------------------------------- | -------: | ---------------------------------------------- |
+| `cab-booking-customer-service.postman_collection.json`            |       12 | Direct Customer Service tests                  |
+| `cab-booking-gateway-customer-forwarding.postman_collection.json` |        9 | Customer routes through the Gateway            |
+| `cab-booking-gateway-failure.postman_collection.json`             |        1 | Customer Service unavailable test              |
+| `cab-booking-booking-service.postman_collection.json`             |       12 | Booking flow through the Gateway               |
+| `cab-booking-booking-failure.postman_collection.json`             |        1 | Booking Service unavailable test               |
+| `cab-booking-cab-ready-event.postman_collection.json`             |        2 | Delayed cab-ready notification test            |
+| `cab-booking-discount-event.postman_collection.json`              |       12 | Discount trigger and duplicate-prevention test |
+| `cab-booking-local.postman_environment.json`                      |        - | Shared local URLs and runtime variables        |
 
-## Important: Gateway vs Direct Service URLs
+The failure and event checks are separate because Newman cannot stop services or pause interactively inside a collection. The PowerShell runners coordinate those steps.
 
-From phase 3 onwards, all integration tests must target the **Gateway at `http://localhost:4000`**, not Customer Service directly at `http://localhost:3001`.
+## Gateway and Direct URLs
 
-The Gateway is the single entry point the frontend uses. Testing via the Gateway proves the full request path works: JWT verification at Gateway, Axios forwarding, and downstream service response. Testing Customer Service directly at port 3001 is only for isolated service-level debugging.
-
-Use `{{gatewayUrl}}` for all Gateway tests and `{{customerServiceUrl}}` only when testing the customer-service in isolation.
-
-## Purpose
-
-Postman is used to test each endpoint independently before the frontend is connected.
-
-The exported collections and environment provide evidence that the API was tested with the correct request bodies, headers, status codes, and JSON responses.
-
-## Files
+Integration tests use `{{gatewayUrl}}` (`http://localhost:4000`). This verifies the complete path:
 
 ```text
-postman/
-├── cab-booking-customer-service.postman_collection.json               Step 2 — direct Customer Service tests
-├── cab-booking-gateway-customer-forwarding.postman_collection.json    Step 3 — Gateway forwarding, Customer normal flow
-├── cab-booking-gateway-failure.postman_collection.json                Step 3 — Gateway service-down test
-├── cab-booking-booking-service.postman_collection.json                Step 4 — Booking Service normal flow (12 requests)
-├── cab-booking-booking-failure.postman_collection.json                Step 4 — Booking Service service-down test
-├── cab-booking-cab-ready-event.postman_collection.json                Step 4 — cab-ready delayed event test
-├── cab-booking-local.postman_environment.json                         shared environment for all collections
-└── README.md
+Postman -> Gateway authentication and forwarding -> microservice -> PostgreSQL
 ```
 
-## Environment
+Direct service URLs are only used for health checks, isolated Customer Service tests, or test-data setup for internal endpoints.
 
-Environment name:
+## Environment Variables
 
-```text
-Cab Booking Local
+Import `cab-booking-local.postman_environment.json` and select **Cab Booking Local** in Postman.
+
+| Variable                                                 | Purpose                                                        |
+| -------------------------------------------------------- | -------------------------------------------------------------- |
+| `gatewayUrl`                                           | Gateway integration URL (`http://localhost:4000`)            |
+| `customerServiceUrl`                                   | Direct Customer Service URL (`http://localhost:3001`)        |
+| `bookingServiceUrl`                                    | Direct Booking Service URL (`http://localhost:3002`)         |
+| `paymentServiceUrl`                                    | Direct Payment Service URL (`http://localhost:3003`)         |
+| `fareServiceUrl`                                       | Direct Fare Estimation Service URL (`http://localhost:3004`) |
+| `locationServiceUrl`                                   | Direct Location Service URL (`http://localhost:3005`)        |
+| `testEmail`, `testPassword`                          | Test login details; most workflows generate a unique email     |
+| `token`, `userId`                                    | Saved automatically after registration and login               |
+| `notificationId`, `bookingId`, `cabReadyBookingId` | Saved IDs reused by later requests                             |
+
+## Run a Collection Manually
+
+In Postman:
+
+1. Import the environment and required collection.
+2. Select **Cab Booking Local**.
+3. Start the required services.
+4. Use **Run collection** and review the test results.
+
+For example, run the direct Customer Service collection with Newman:
+
+```powershell
+newman run .\postman\cab-booking-customer-service.postman_collection.json `
+  -e .\postman\cab-booking-local.postman_environment.json
 ```
 
-Variables:
+## Security
 
-| Variable | Example value | Purpose |
-|---|---|---|
-| `gatewayUrl` | `http://localhost:4000` | Gateway local base URL — use for all integration tests |
-| `customerServiceUrl` | `http://localhost:3001` | Customer Service direct URL — for isolated service-level testing only |
-| `bookingServiceUrl` | `http://localhost:3002` | Booking Service direct URL — health check only |
-| `baseUrl` | `http://localhost:3001` | Legacy — used by Step 2 Customer Service tests |
-| `testEmail` | generated per run | auto-generated unique email (pre-request script) |
-| `testPassword` | `password123` | test user password |
-| `token` | empty until login | JWT from login response |
-| `userId` | empty until register/login | current test user's ID |
-| `notificationId` | empty until notification creation | current test notification ID |
-| `bookingId` | empty until booking creation | created booking ID for subsequent requests |
-| `cabReadyBookingId` | empty until cab-ready test | booking ID used for cab-ready event test |
+Before committing, make sure exported environments do not contain real credentials or reusable tokens. Never commit:
 
-## Important Security Rule
+- JWT secrets or long-lived tokens
+- Database passwords
+- External API keys
+- Generated `.tmp-*.json` environment files
 
-Before committing the environment file, clear runtime values:
+## Troubleshooting
 
-- `token`
-- `userId`
-- `notificationId`
-
-Do not commit:
-
-- real JWT secrets
-- database passwords
-- API keys
-- long-lived tokens
-
-## Collection Structure
-
-### cab-booking-customer-service.postman_collection.json
-
-Direct Customer Service tests on port 3001. Run via Postman UI or Newman manually.
-
-```text
-01 - Customer Service (direct port 3001)
-├── 01 - Health Check
-├── 02 - Register Valid User
-├── 03 - Register Duplicate User
-├── 04 - Register Short Password
-├── 05 - Login Valid User
-├── 06 - Login Wrong Password
-├── 07 - Account Without Token
-├── 08 - Account With Token
-├── 09 - Get Notifications
-├── 10 - Create Notification Internal
-├── 11 - Get Notifications After Create
-└── 12 - Mark Notification As Read
-```
-
-### cab-booking-gateway-customer-forwarding.postman_collection.json
-
-Gateway forwarding tests on port 4000. Run automatically via `run-gateway-newman-tests.ps1`.
-
-Pre-request script on request 02 generates a unique `testEmail` using `Date.now()` — no manual cleanup needed between runs.
-
-```text
-Gateway Customer Forwarding - Normal
-├── 01 - Gateway Health Check
-├── 02 - Register via Gateway              ← generates unique email automatically
-├── 03 - Login via Gateway                 ← saves token to environment
-├── 04 - Account Without Token             ← expects 401 from Gateway's requireAuth
-├── 05 - Account With Token via Gateway    ← expects 200, checks no password_hash
-├── 06 - Create Notification Setup Direct  ← calls customerServiceUrl directly to seed test data
-├── 07 - Notifications via Gateway         ← expects array with at least one notification
-├── 08 - Mark Notification Read via Gateway
-└── 09 - Verify Notification Read via Gateway ← confirms is_read=true and read_at is set
-```
-
-### cab-booking-gateway-failure.postman_collection.json
-
-Service-down test. Run by `run-gateway-newman-tests.ps1` after prompting you to stop Customer Service.
-
-```text
-Gateway Failure Tests
-└── 01 - Service Down Test   ← expects 503 from Gateway, not a crash
-```
-
-### cab-booking-booking-service.postman_collection.json
-
-Booking Service tests via Gateway (port 4000). Run automatically via `run-booking-newman-tests.ps1`.
-
-Folder `00` registers a fresh test user per run and logs in to get a JWT. Folder `01` runs 10 booking tests using that token.
-
-```text
-00 - Setup - Register and Login via Gateway
-├── 00a - Register Test User     ← unique email generated per run, registered via Gateway
-└── 00b - Login and Save Token   ← token and userId saved to environment
-
-01 - Booking Service - Normal Flow
-├── 01 - Booking Health Direct            ← GET bookingServiceUrl/health → 200
-├── 02 - Create Booking Without Token     ← expects 401 from Gateway requireAuth
-├── 03 - Create Booking Valid             ← expects 201; saves bookingId to environment
-├── 04 - Create Booking Invalid Cab Type  ← cab_type "Luxury" expects 400
-├── 05 - Create Booking Passengers OOR   ← passengers = 9 expects 400
-├── 06 - View Current Bookings            ← expects 200 array; created booking must be present
-├── 07 - View Past Bookings Before        ← expects 200 array (booking not yet completed)
-├── 08 - Get Single Booking               ← GET /api/bookings/{{bookingId}} expects 200
-├── 09 - Update Status To Completed       ← PATCH /api/bookings/{{bookingId}}/status → 200
-└── 10 - View Past Bookings After         ← expects 200; completed booking must now be present
-```
-
-### cab-booking-booking-failure.postman_collection.json
-
-Service-down test. Run by `run-booking-newman-tests.ps1` after prompting to stop Booking Service.
-
-```text
-Booking Failure Tests
-└── Booking Service Down - Current Bookings   ← expects 503 from Gateway, not a crash
-```
-
-### cab-booking-cab-ready-event.postman_collection.json
-
-Cab-ready delayed event test. Run by `run-booking-newman-tests.ps1` using the exported environment (token already set from normal flow).
-
-```text
-Create Booking For Cab Ready Event    ← POST /api/bookings → 201; saves cabReadyBookingId
-Check Cab Ready Notification          ← GET /api/customers/notifications; asserts type='cab_ready' present
-```
-
-The script waits 190 seconds between these two requests to allow the 3-minute setTimeout to fire.
-
-## Gateway Forwarding Tests — Request Details (Step 3)
-
-All requests use `{{gatewayUrl}}` = `http://localhost:4000`. Both services must be running.
-
-Run via: `.\scripts\run-gateway-newman-tests.ps1`
-
-### 01 — Gateway Health Check
-
-```http
-GET {{gatewayUrl}}/health
-```
-
-Expected: `200 { "status": "ok", "service": "gateway-service" }`
-
-### 02 — Register via Gateway
-
-```http
-POST {{gatewayUrl}}/api/customers/register
-```
-
-Pre-request script automatically generates a unique email (`gatewaytest+<timestamp>@example.com`) and clears `token`, `userId`, `notificationId`. No manual cleanup needed between runs.
-
-Expected: `201 { "message": "Registration successful", "userId": "uuid" }`
-
-### 03 — Login via Gateway
-
-```http
-POST {{gatewayUrl}}/api/customers/login
-```
-
-Uses the `testEmail` set by the previous pre-request script. Test script saves `token` and `userId` to environment automatically.
-
-Expected: `200 { "token": "...", "userId": "...", "email": "..." }`
-
-### 04 — Account Without Token (Gateway rejects)
-
-```http
-GET {{gatewayUrl}}/api/customers/account
-```
-
-No Authorization header. The 401 is returned by the **Gateway's own `requireAuth`** — Customer Service never receives this request. This proves the Gateway is enforcing auth, not just passing everything through.
-
-Expected: `401 { "error": "Missing or invalid authorization token" }`
-
-### 05 — Account With Token via Gateway
-
-```http
-GET {{gatewayUrl}}/api/customers/account
-Authorization: Bearer {{token}}
-```
-
-Test script asserts `password_hash` is absent from the response.
-
-Expected: `200` with account object (no `password_hash`)
-
-### 06 — Create Notification Setup Direct
-
-```http
-POST {{customerServiceUrl}}/notifications
-```
-
-This request calls `customerServiceUrl` (port 3001) directly, not the Gateway. This is a test fixture step — it seeds a notification for the logged-in user so that the next two requests have something to work with. The Gateway does not expose a notification creation endpoint (that is an internal endpoint only).
-
-Expected: `201 { "notificationId": "uuid" }` — saves `notificationId` to environment.
-
-### 07 — Notifications via Gateway
-
-```http
-GET {{gatewayUrl}}/api/customers/notifications
-Authorization: Bearer {{token}}
-```
-
-Asserts the array has at least one notification. Confirms the notification created in step 06 is present.
-
-Expected: `200 { "notifications": [...] }`
-
-### 08 — Mark Notification Read via Gateway
-
-```http
-PATCH {{gatewayUrl}}/api/customers/notifications/{{notificationId}}/read
-Authorization: Bearer {{token}}
-```
-
-Expected: `200 { "message": "Notification marked as read" }`
-
-### 09 — Verify Notification Read via Gateway
-
-```http
-GET {{gatewayUrl}}/api/customers/notifications
-Authorization: Bearer {{token}}
-```
-
-Finds the notification by `notificationId` in the response array. Asserts `is_read === true` and `read_at` is not null. This end-to-end assertion proves the PATCH propagated correctly through the Gateway to Customer Service and was saved to the database.
-
-Expected: `200` — notification found with `is_read: true` and `read_at` set.
-
-## Service Down Test — Request Details
-
-Run automatically by `run-gateway-newman-tests.ps1` after you stop Customer Service and confirm with `Y`.
-
-```http
-GET {{gatewayUrl}}/api/customers/account
-Authorization: Bearer {{token}}
-```
-
-Expected: `503 { "error": "Service temporarily unavailable" }`
-
-The Gateway must not crash or return 500. If it does, the `err.code === 'ECONNREFUSED'` check in `handleAxiosError` is missing or incorrect.
-
-## Test Order and Expected Results
-
-### 01 — Health Check
-
-```http
-GET {{baseUrl}}/health
-```
-
-Expected:
-
-```json
-{
-  "status": "ok",
-  "service": "customer-service"
-}
-```
-
-Status: `200`.
-
-### 02 — Register Valid User
-
-```http
-POST {{baseUrl}}/register
-```
-
-Body:
-
-```json
-{
-  "first_name": "Test",
-  "surname": "User",
-  "email": "{{testEmail}}",
-  "password": "{{testPassword}}"
-}
-```
-
-Expected status: `201`.
-
-Expected body:
-
-```json
-{
-  "message": "Registration successful",
-  "userId": "uuid"
-}
-```
-
-Save `userId` to the environment.
-
-### 03 — Register Duplicate User
-
-Run the same request again with the same email.
-
-Expected status: `409`.
-
-Expected body:
-
-```json
-{
-  "error": "Email already registered"
-}
-```
-
-### 04 — Register Short Password
-
-```http
-POST {{baseUrl}}/register
-```
-
-Body:
-
-```json
-{
-  "first_name": "Short",
-  "surname": "Password",
-  "email": "shortpass@example.com",
-  "password": "1234"
-}
-```
-
-Expected status: `400`.
-
-Expected body:
-
-```json
-{
-  "error": "Password must be at least 8 characters"
-}
-```
-
-### 05 — Login Valid User
-
-```http
-POST {{baseUrl}}/login
-```
-
-Body:
-
-```json
-{
-  "email": "{{testEmail}}",
-  "password": "{{testPassword}}"
-}
-```
-
-Expected status: `200`.
-
-Expected body:
-
-```json
-{
-  "token": "jwt-token",
-  "userId": "uuid",
-  "email": "testuser001@example.com"
-}
-```
-
-Save `token` and `userId` to the environment.
-
-### 06 — Login Wrong Password
-
-```http
-POST {{baseUrl}}/login
-```
-
-Body:
-
-```json
-{
-  "email": "{{testEmail}}",
-  "password": "wrongpassword"
-}
-```
-
-Expected status: `401`.
-
-Expected body:
-
-```json
-{
-  "error": "Invalid email or password"
-}
-```
-
-### 07 — Account Without Token
-
-```http
-GET {{baseUrl}}/account
-```
-
-No Authorization header.
-
-Expected status: `401`.
-
-Expected body:
-
-```json
-{
-  "error": "Missing or invalid authorization token"
-}
-```
-
-### 08 — Account With Token
-
-```http
-GET {{baseUrl}}/account
-Authorization: Bearer {{token}}
-```
-
-Expected status: `200`.
-
-Expected body includes:
-
-- `id`
-- `first_name`
-- `surname`
-- `email`
-- `discount_available`
-- `created_at`
-
-Expected body must not include:
-
-- `password_hash`
-
-### 09 — Get Notifications
-
-```http
-GET {{baseUrl}}/notifications
-Authorization: Bearer {{token}}
-```
-
-Expected status: `200`.
-
-Expected body:
-
-```json
-{
-  "notifications": []
-}
-```
-
-The array may contain existing notifications if previous tests already created them.
-
-### 10 — Create Notification Internal
-
-```http
-POST {{baseUrl}}/notifications
-```
-
-No Authorization header.
-
-Body:
-
-```json
-{
-  "user_id": "{{userId}}",
-  "type": "system",
-  "title": "Test",
-  "message": "Hello",
-  "payload": {
-    "source": "postman",
-    "reason": "Step 2 test"
-  }
-}
-```
-
-Expected status: `201`.
-
-Expected body:
-
-```json
-{
-  "message": "Notification created",
-  "notificationId": "uuid"
-}
-```
-
-Save `notificationId` to the environment.
-
-### 11 — Get Notifications After Create
-
-```http
-GET {{baseUrl}}/notifications
-Authorization: Bearer {{token}}
-```
-
-Expected status: `200`.
-
-Expected result: response contains at least one notification.
-
-If needed, save the first notification ID:
-
-```js
-const json = pm.response.json();
-pm.environment.set("notificationId", json.notifications[0].id);
-```
-
-### 12 — Mark Notification As Read
-
-```http
-PATCH {{baseUrl}}/notifications/{{notificationId}}/read
-Authorization: Bearer {{token}}
-```
-
-Expected status: `200`.
-
-Expected body:
-
-```json
-{
-  "message": "Notification marked as read"
-}
-```
-
-Run `GET /notifications` again and confirm:
-
-- `is_read` is `true`
-- `read_at` is not `null`
-
-## Example Postman Test Scripts
-
-### Login Valid User
-
-```js
-const json = pm.response.json();
-
-pm.test("Login returns 200", function () {
-  pm.response.to.have.status(200);
-});
-
-pm.test("Token exists", function () {
-  pm.expect(json.token).to.exist;
-});
-
-pm.environment.set("token", json.token);
-pm.environment.set("userId", json.userId);
-```
-
-### Create Notification Internal
-
-```js
-const json = pm.response.json();
-
-pm.test("Notification created", function () {
-  pm.response.to.have.status(201);
-});
-
-pm.test("Notification ID exists", function () {
-  pm.expect(json.notificationId).to.exist;
-});
-
-pm.environment.set("notificationId", json.notificationId);
-```
-
-## Database Verification After Tests
-
-### Users
-
-```sql
-SELECT
-  id,
-  first_name,
-  surname,
-  email,
-  password_hash,
-  discount_available,
-  discount_notification_sent,
-  created_at,
-  updated_at
-FROM users
-ORDER BY created_at DESC
-LIMIT 5;
-```
-
-### Notifications
-
-```sql
-SELECT
-  id,
-  user_id,
-  type,
-  title,
-  message,
-  payload,
-  is_read,
-  read_at,
-  created_at
-FROM notifications
-ORDER BY created_at DESC
-LIMIT 10;
-```
+- `401`: rerun registration and login so the collection stores a fresh token.
+- `503`: confirm the downstream service is running, unless a service-down test expects this status.
+- Connection refused: confirm the required ports and local environment URLs.
+- Cab-ready test fails: keep Booking Service running for the full 190-second wait.
+- Repeated test data: use the runner; its pre-request scripts generate unique users where needed.
