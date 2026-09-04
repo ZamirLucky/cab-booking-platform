@@ -8,3 +8,9 @@ coverage/
 .DS_Store
 npm-debug.log*
 .vscode/settings.json
+.claude/
+
+AGENTS.md
+CLAUDE.md
+
+docs/

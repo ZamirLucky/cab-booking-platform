@@ -3,15 +3,92 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Cab Booking - Login</title>
+  <title>Cab Booking — Login</title>
+  <!-- Bootstrap CSS -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" />
   <link rel="stylesheet" href="css/custom.css" />
 </head>
-<body>
-  <!-- TODO: Login form (email + password) -->
-  <!-- TODO: Link to register.html -->
-  <!-- TODO: Bootstrap validation -->
+<body class="bg-light min-vh-100 d-flex align-items-center justify-content-center">
+
+  <!-- Login card -->
+  <div class="card shadow-sm" style="width: 22rem;">
+    <div class="card-body p-4">
+      <h4 class="card-title text-center mb-4">Cab Booking — Login</h4>
+
+      <!-- Error alert: hidden until showError() is called -->
+      <div id="error-msg" class="alert alert-danger d-none" role="alert"></div>
+
+      <!-- Login form: Bootstrap needs-validation -->
+      <form id="login-form" novalidate>
+
+        <!-- Email -->
+        <div class="mb-3">
+          <label for="email" class="form-label">Email address</label>
+          <input type="email" class="form-control" id="email" name="email"
+                 placeholder="you@example.com" required />
+          <div class="invalid-feedback">Please enter a valid email address.</div>
+        </div>
+
+        <!-- Password -->
+        <div class="mb-3">
+          <label for="password" class="form-label">Password</label>
+          <input type="password" class="form-control" id="password" name="password"
+                 placeholder="Password" required minlength="8" />
+          <div class="invalid-feedback">Password must be at least 8 characters.</div>
+        </div>
+
+        <!-- Submit -->
+        <button type="submit" class="btn btn-primary w-100">Login</button>
+      </form>
+
+      <!-- Registration link -->
+      <p class="text-center mt-3 mb-0 small">
+        No account? <a href="register.html">Register here</a>
+      </p>
+    </div>
+  </div>
+
+  <!-- Bootstrap JS bundle (includes Popper) -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script src="js/config.js"></script>
   <script src="js/auth.js"></script>
+  <script>
+    // Redirect already-authenticated users straight to the dashboard
+    if (getToken()) window.location.replace('dashboard.html');
+
+    document.getElementById('login-form').addEventListener('submit', async function (e) {
+      e.preventDefault();
+      clearError();
+
+      // Bootstrap validation: apply was-validated class before checking
+      this.classList.add('was-validated');
+      if (!this.checkValidity()) return;
+
+      const email    = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+
+      try {
+        // POST credentials to Gateway → customer-service /login
+        const res  = await fetch(`${GATEWAY_URL}/api/customers/login`, {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ email, password })
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+          // Surface downstream error message (e.g. "Invalid email or password")
+          showError(data.error || 'Login failed. Please try again.');
+          return;
+        }
+
+        // Store JWT and navigate to the protected dashboard
+        setToken(data.token);
+        window.location.replace('dashboard.html');
+      } catch {
+        showError('Cannot reach the server. Please check your connection.');
+      }
+    });
+  </script>
 </body>
 </html>

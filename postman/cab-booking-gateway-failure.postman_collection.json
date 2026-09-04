@@ -1,0 +1,42 @@
+{
+  "info": {
+    "name": "Cab Booking - Gateway Failure Tests",
+    "description": "Manual failure-mode tests. Stop Customer Service before running. Gateway must remain running.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Gateway Failure Tests",
+      "item": [
+        {
+          "name": "01 - Service Down Test",
+          "request": {
+            "method": "GET",
+            "url": "{{gatewayUrl}}/api/customers/account",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          },
+          "description": "Stop Customer Service before running this. Gateway must return 503, not crash.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Service down returns 503', function () { pm.response.to.have.status(503); });",
+                  "const json = pm.response.json();",
+                  "pm.test('Error message is service unavailable', function () { pm.expect(json.error).to.equal('Service temporarily unavailable'); });",
+                  "console.log('Service-down response:', json.error);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

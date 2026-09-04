@@ -1,0 +1,582 @@
+{
+  "info": {
+    "name": "Cab Booking - Booking Service",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "00 - Setup - Register and Login via Gateway",
+      "item": [
+        {
+          "name": "00a - Register Test User",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const email = 'bookingtest+' + Date.now() + '@example.com';",
+                  "pm.environment.set('testEmail', email);",
+                  "console.log('Registering with email:', email);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Register returns 201', () => pm.response.to.have.status(201));",
+                  "console.log('Register response:', pm.response.text());"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"first_name\": \"Booking\",\n  \"surname\": \"Tester\",\n  \"email\": \"{{testEmail}}\",\n  \"password\": \"{{testPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{gatewayUrl}}/api/customers/register",
+              "host": [
+                "{{gatewayUrl}}"
+              ],
+              "path": [
+                "api",
+                "customers",
+                "register"
+              ]
+            }
+          }
+        },
+        {
+          "name": "00b - Login and Save Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "pm.test('Login returns 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Token exists', () => pm.expect(json.token).to.exist);",
+                  "pm.environment.set('token', json.token);",
+                  "pm.environment.set('userId', json.userId);",
+                  "console.log('Logged in userId:', json.userId);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{testEmail}}\",\n  \"password\": \"{{testPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{gatewayUrl}}/api/customers/login",
+              "host": [
+                "{{gatewayUrl}}"
+              ],
+              "path": [
+                "api",
+                "customers",
+                "login"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "01 - Booking Service - Normal Flow",
+      "item": [
+        {
+          "name": "01 - Booking Health Direct",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{bookingServiceUrl}}/health",
+              "host": [
+                "{{bookingServiceUrl}}"
+              ],
+              "path": [
+                "health"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "pm.test('Booking health returns 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Booking service is ok', () => pm.expect(json.status).to.eql('ok'));",
+                  "console.log('Booking health:', JSON.stringify(json));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "02 - Create Booking Without Token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"start_location\": \"Valletta\",\n  \"end_location\": \"Sliema\",\n  \"booking_datetime\": \"2026-06-01T10:00:00.000Z\",\n  \"passengers\": 2,\n  \"cab_type\": \"Economic\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{gatewayUrl}}/api/bookings",
+              "host": [
+                "{{gatewayUrl}}"
+              ],
+              "path": [
+                "api",
+                "bookings"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Create booking without token returns 401', () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "03 - Create Booking Valid",
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"start_location\": \"Valletta\",\n  \"end_location\": \"Sliema\",\n  \"booking_datetime\": \"2026-06-01T10:00:00.000Z\",\n  \"passengers\": 2,\n  \"cab_type\": \"Economic\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{gatewayUrl}}/api/bookings",
+              "host": [
+                "{{gatewayUrl}}"
+              ],
+              "path": [
+                "api",
+                "bookings"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "pm.test('Create booking returns 201', () => pm.response.to.have.status(201));",
+                  "const bookingId = json.bookingId || json.id || (json.booking && json.booking.id);",
+                  "pm.test('Booking ID exists', () => pm.expect(bookingId).to.exist);",
+                  "pm.environment.set('bookingId', bookingId);",
+                  "console.log('Created bookingId:', bookingId);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "04 - Create Booking Invalid Cab Type",
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"start_location\": \"Valletta\",\n  \"end_location\": \"Sliema\",\n  \"booking_datetime\": \"2026-06-01T10:00:00.000Z\",\n  \"passengers\": 2,\n  \"cab_type\": \"Luxury\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{gatewayUrl}}/api/bookings",
+              "host": [
+                "{{gatewayUrl}}"
+              ],
+              "path": [
+                "api",
+                "bookings"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Invalid cab_type returns 400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "05 - Create Booking Passengers Out Of Range",
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"start_location\": \"Valletta\",\n  \"end_location\": \"Sliema\",\n  \"booking_datetime\": \"2026-06-01T10:00:00.000Z\",\n  \"passengers\": 9,\n  \"cab_type\": \"Economic\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{gatewayUrl}}/api/bookings",
+              "host": [
+                "{{gatewayUrl}}"
+              ],
+              "path": [
+                "api",
+                "bookings"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Passengers out of range returns 400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "06 - View Current Bookings",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{gatewayUrl}}/api/bookings/current",
+              "host": [
+                "{{gatewayUrl}}"
+              ],
+              "path": [
+                "api",
+                "bookings",
+                "current"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "const bookings = json.bookings || json;",
+                  "pm.test('Current bookings returns 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Current bookings is an array', () => pm.expect(bookings).to.be.an('array'));",
+                  "pm.test('Created booking is visible in current bookings', () => { const found = bookings.some(b => b.id === pm.environment.get('bookingId')); pm.expect(found).to.eql(true); });",
+                  "console.log('Current booking count:', bookings.length);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "07 - View Past Bookings Before Completion",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{gatewayUrl}}/api/bookings/past",
+              "host": [
+                "{{gatewayUrl}}"
+              ],
+              "path": [
+                "api",
+                "bookings",
+                "past"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "const bookings = json.bookings || json;",
+                  "pm.test('Past bookings returns 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Past bookings is an array', () => pm.expect(bookings).to.be.an('array'));",
+                  "console.log('Past booking count before completion:', bookings.length);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "08 - Get Single Booking",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{gatewayUrl}}/api/bookings/{{bookingId}}",
+              "host": [
+                "{{gatewayUrl}}"
+              ],
+              "path": [
+                "api",
+                "bookings",
+                "{{bookingId}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "const booking = json.booking || json;",
+                  "pm.test('Single booking returns 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Correct booking returned', () => pm.expect(booking.id).to.eql(pm.environment.get('bookingId')));",
+                  "console.log('Single booking:', JSON.stringify(booking));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "09 - Update Status To Completed",
+          "request": {
+            "method": "PATCH",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"completed\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{gatewayUrl}}/api/bookings/{{bookingId}}/status",
+              "host": [
+                "{{gatewayUrl}}"
+              ],
+              "path": [
+                "api",
+                "bookings",
+                "{{bookingId}}",
+                "status"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Update status returns 200', () => pm.response.to.have.status(200));",
+                  "console.log('Updated booking status response:', pm.response.text());"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "10 - View Past Bookings After Completion",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{gatewayUrl}}/api/bookings/past",
+              "host": [
+                "{{gatewayUrl}}"
+              ],
+              "path": [
+                "api",
+                "bookings",
+                "past"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "const bookings = json.bookings || json;",
+                  "pm.test('Past bookings returns 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Completed booking is visible in past bookings', () => { const found = bookings.some(b => b.id === pm.environment.get('bookingId')); pm.expect(found).to.eql(true); });",
+                  "console.log('Past booking count after completion:', bookings.length);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

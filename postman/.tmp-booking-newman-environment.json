@@ -1,0 +1,79 @@
+{
+  "_": {
+    "postman_variable_scope": "environment",
+    "postman_exported_at": "2026-05-28T17:49:48.191Z",
+    "postman_exported_using": "Newman/6.2.2"
+  },
+  "id": "f859779d-6039-49f8-9bdb-beda16760d4a",
+  "name": "Cab Booking Local",
+  "values": [
+    {
+      "type": "any",
+      "value": "http://localhost:4000",
+      "key": "gatewayUrl"
+    },
+    {
+      "type": "any",
+      "value": "http://localhost:3001",
+      "key": "customerServiceUrl"
+    },
+    {
+      "type": "any",
+      "value": "http://localhost:3002",
+      "key": "bookingServiceUrl"
+    },
+    {
+      "type": "any",
+      "value": "http://localhost:3003",
+      "key": "paymentServiceUrl"
+    },
+    {
+      "type": "any",
+      "value": "http://localhost:3004",
+      "key": "fareServiceUrl"
+    },
+    {
+      "type": "any",
+      "value": "http://localhost:3005",
+      "key": "locationServiceUrl"
+    },
+    {
+      "type": "any",
+      "value": "bookingtest+1779990581718@example.com",
+      "key": "testEmail"
+    },
+    {
+      "type": "any",
+      "value": "password123",
+      "key": "testPassword"
+    },
+    {
+      "type": "any",
+      "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIwOGJiOTFlZC1lOTI3LTQxNWMtYWYxNC00MmIyOWMwZTg1NWQiLCJlbWFpbCI6ImJvb2tpbmd0ZXN0KzE3Nzk5OTA1ODE3MThAZXhhbXBsZS5jb20iLCJpYXQiOjE3Nzk5OTA1ODMsImV4cCI6MTc4MDA3Njk4M30.7G3Lb8jMafoUpJ8jCigXtNax6QPWulDNv9bmzlu0rAM",
+      "key": "token"
+    },
+    {
+      "type": "any",
+      "value": "08bb91ed-e927-415c-af14-42b29c0e855d",
+      "key": "userId"
+    },
+    {
+      "type": "any",
+      "value": "",
+      "key": "notificationId"
+    },
+    {
+      "type": "any",
+      "value": "9995b275-8d3b-4a6c-9447-5fc126ccf22a",
+      "key": "bookingId"
+    },
+    {
+      "type": "any",
+      "value": "70e08d4d-c2a5-422e-828d-dbdd85afe21b",
+      "key": "cabReadyBookingId"
+    }
+  ],
+  "_postman_variable_scope": "environment",
+  "_postman_exported_at": "2026-05-28T17:49:54.575Z",
+  "_postman_exported_using": "Newman/6.2.2"
+}

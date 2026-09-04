@@ -1,0 +1,234 @@
+{
+  "info": {
+    "name": "Cab Booking - Customer Service Tests",
+    "description": "Direct local tests for Customer Service on port 3001.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "01 - Customer Service (direct port 3001)",
+      "description": "Direct Customer Service regression tests. Uses {{customerServiceUrl}} = http://localhost:3001.",
+      "item": [
+        {
+          "name": "01 - Health Check",
+          "request": {
+            "method": "GET",
+            "url": "{{customerServiceUrl}}/health"
+          }
+        },
+        {
+          "name": "02 - Register Valid User",
+          "request": {
+            "method": "POST",
+            "url": "{{customerServiceUrl}}/register",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"first_name\": \"Test\",\n  \"surname\": \"User\",\n  \"email\": \"{{testEmail}}\",\n  \"password\": \"{{testPassword}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "pm.test('Register returns 201', function () { pm.response.to.have.status(201); });",
+                  "if (json.userId) { pm.environment.set('userId', json.userId); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "03 - Register Duplicate User",
+          "request": {
+            "method": "POST",
+            "url": "{{customerServiceUrl}}/register",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"first_name\": \"Test\",\n  \"surname\": \"User\",\n  \"email\": \"{{testEmail}}\",\n  \"password\": \"{{testPassword}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "04 - Register Short Password",
+          "request": {
+            "method": "POST",
+            "url": "{{customerServiceUrl}}/register",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"first_name\": \"Short\",\n  \"surname\": \"Password\",\n  \"email\": \"shortpass@example.com\",\n  \"password\": \"1234\"\n}"
+            }
+          }
+        },
+        {
+          "name": "05 - Login Valid User",
+          "request": {
+            "method": "POST",
+            "url": "{{customerServiceUrl}}/login",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{testEmail}}\",\n  \"password\": \"{{testPassword}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "pm.test('Login returns 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Token exists', function () { pm.expect(json.token).to.exist; });",
+                  "pm.environment.set('token', json.token);",
+                  "pm.environment.set('userId', json.userId);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "06 - Login Wrong Password",
+          "request": {
+            "method": "POST",
+            "url": "{{customerServiceUrl}}/login",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{testEmail}}\",\n  \"password\": \"wrongpassword\"\n}"
+            }
+          }
+        },
+        {
+          "name": "07 - Account Without Token",
+          "request": {
+            "method": "GET",
+            "url": "{{customerServiceUrl}}/account"
+          }
+        },
+        {
+          "name": "08 - Account With Token",
+          "request": {
+            "method": "GET",
+            "url": "{{customerServiceUrl}}/account",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          }
+        },
+        {
+          "name": "09 - Get Notifications",
+          "request": {
+            "method": "GET",
+            "url": "{{customerServiceUrl}}/notifications",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          }
+        },
+        {
+          "name": "10 - Create Notification Internal",
+          "request": {
+            "method": "POST",
+            "url": "{{customerServiceUrl}}/notifications",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": \"{{userId}}\",\n  \"type\": \"system\",\n  \"title\": \"Test Notification\",\n  \"message\": \"Hello from Postman Step 2 test\",\n  \"payload\": { \"source\": \"postman\", \"reason\": \"Step 2 test\" }\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "pm.test('Notification created 201', function () { pm.response.to.have.status(201); });",
+                  "if (json.notificationId) { pm.environment.set('notificationId', json.notificationId); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "11 - Get Notifications After Create",
+          "request": {
+            "method": "GET",
+            "url": "{{customerServiceUrl}}/notifications",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.notifications && json.notifications.length > 0) {",
+                  "  pm.environment.set('notificationId', json.notifications[0].id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "12 - Mark Notification As Read",
+          "request": {
+            "method": "PATCH",
+            "url": "{{customerServiceUrl}}/notifications/{{notificationId}}/read",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

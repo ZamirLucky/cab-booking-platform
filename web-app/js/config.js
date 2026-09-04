@@ -1,3 +1,4 @@
 // config.js
-// TODO: Export the gateway base URL used by all Fetch API calls
-// const GATEWAY_URL = 'http://localhost:3000';
+// Gateway base URL — single source of truth for all Fetch API calls.
+// Change this to the Cloud Run URL before deploying.
+const GATEWAY_URL = 'http://localhost:4000'; // local dev
