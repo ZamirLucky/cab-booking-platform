@@ -132,8 +132,6 @@ Fare, Payment, and Location checks are currently documented as manual workflows 
 
 ## Project Documentation
 
-To avoid conflicting copies of the same information:
-
 - This README owns the repository overview, architecture summary, status, and full-system startup flow.
 - Each [component README](#components) owns that component's configuration, API contract, examples, and limitations.
 - [Web App documentation](web-app/README.md) owns the page flow, browser configuration, validation, and manual UI checks.

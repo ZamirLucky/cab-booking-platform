@@ -1,14 +1,17 @@
 # Dockerfile for gateway-service
-# TODO: Complete during deployment phase (Google Cloud Run)
 
 FROM node:20-alpine
 
 WORKDIR /app
 
-# TODO: COPY package*.json ./
-# TODO: RUN npm install --production
-# TODO: COPY . .
+# Install dependencies before copying source to improve layer caching.
+COPY package*.json ./
+RUN npm ci --omit=dev
 
-EXPOSE 3000
+COPY src ./src
 
-CMD ["node", "src/index.js"]
+ENV NODE_ENV=production
+
+EXPOSE 8080
+
+CMD ["npm", "start"]
