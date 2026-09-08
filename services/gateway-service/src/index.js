@@ -1,8 +1,10 @@
-// Entry point for gateway-service.
-// Initialises Express, mounts customer-service routes under /api/customers, and registers the global error handler.
+// Gateway entry point
 'use strict';
 
+// Configuration
 require('dotenv').config();
+require('./utils/configureCloudRunAxios')();
+
 const express = require('express');
 const cors = require('cors');
 
@@ -17,27 +19,19 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Health check
+// Health
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', service: 'gateway-service' });
 });
 
-// Customer service routes
+// API routes
 app.use('/api/customers', customerRoutes);
-
-// Booking service routes
 app.use('/api/bookings', bookingRoutes);
-
-// Payment service routes
 app.use('/api/payments', paymentRoutes);
-
-// Fare estimation service routes
 app.use('/api/fare', fareRoutes);
-
-// Location service routes
 app.use('/api/locations', locationRoutes);
 
-// Error handler - must be registered after all routes
+// Error handling
 app.use(errorHandler);
 
 const PORT = process.env.PORT || 4000;
