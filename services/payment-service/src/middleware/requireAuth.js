@@ -1,15 +1,10 @@
-// requireAuth.js
-// TODO: Verify JWT from Authorization header; reject with 401 if invalid
+// Payment authentication
 
 'use strict';
 
 const jwt = require('jsonwebtoken');
 
-/**
- * Payment-service JWT verification.
- * Rejects requests with missing or invalid tokens.
- * Sets req.user = { id, email } for downstream handlers.
- */
+/** Verifies the bearer token and assigns the authenticated user. */
 function requireAuth(req, res, next) {
   const authHeader = req.headers.authorization;
 

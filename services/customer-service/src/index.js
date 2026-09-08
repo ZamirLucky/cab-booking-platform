@@ -1,5 +1,4 @@
-// Entry point for customer-service.
-// Initialises Express, applies CORS and JSON middleware, mounts auth and notification routes, and starts the server.
+// Customer service entry point
 'use strict';
 
 require("dotenv").config();
@@ -16,7 +15,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Health check
+// Health
 app.get("/health", (req, res) => {
   res.json({
     status: "ok",
@@ -24,11 +23,11 @@ app.get("/health", (req, res) => {
   });
 });
 
-// Routes
+// API routes
 app.use("/", authRoutes);
 app.use("/", notificationRoutes);
 
-// Error handler - must be last middleware
+// Error handling
 app.use(errorHandler);
 
 const PORT = process.env.PORT || 3001;

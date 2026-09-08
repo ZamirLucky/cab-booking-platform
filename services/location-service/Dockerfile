@@ -1,11 +1,8 @@
-# Dockerfile for location-service
-
-
 FROM node:20-alpine
 
 WORKDIR /app
 
-# Install dependencies before copying source to improve layer caching.
+# Dependencies
 COPY package*.json ./
 RUN npm ci --omit=dev
 

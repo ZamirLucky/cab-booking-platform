@@ -11,15 +11,15 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Health check
+// Health
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', service: 'payment-service' });
 });
 
-// Payment routes
+// API routes
 app.use('/', paymentRoutes);
 
-// Error handler — must be last
+// Error handling
 app.use(errorHandler);
 
 const PORT = process.env.PORT || 3003;

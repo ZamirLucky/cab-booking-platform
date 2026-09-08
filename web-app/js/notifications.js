@@ -1,9 +1,7 @@
-// notifications.js
-// Notification list loading and mark-as-read helpers.
-// Loaded on notifications.html.
+// Notification helpers
 'use strict';
 
-// Format ISO timestamp
+// Date formatting
 function formatNotifDate(iso) {
   if (!iso) return '—';
   return new Date(iso).toLocaleString('en-GB', {
@@ -12,17 +10,14 @@ function formatNotifDate(iso) {
   });
 }
 
-// Type badge
-// Colour-codes cab_ready (info) and discount (success) notification types.
+// Type styling
 function typeBadge(type) {
   const map = { cab_ready: 'info', discount: 'success' };
   const cls = map[type] || 'secondary';
   return `<span class="badge bg-${cls} me-2 text-capitalize">${type.replace('_', ' ')}</span>`;
 }
 
-// Load all notifications
-// GET /api/customers/notifications → renders list into #notifications-list.
-// Response shape: { notifications: [ { id, type, title, message, is_read, created_at } ] }
+// Notification list
 async function loadNotifications() {
   const list = document.getElementById('notifications-list');
   if (!list) return;
@@ -33,7 +28,7 @@ async function loadNotifications() {
     const res  = await fetch(`${GATEWAY_URL}/api/customers/notifications`, { headers: authHeaders() });
     const data = await res.json();
 
-    // Expired token — log out immediately
+    // Session expiry
     if (res.status === 401) { handleLogout(); return; }
     if (!res.ok) { showError(data.error || 'Failed to load notifications.'); return; }
 
@@ -44,8 +39,7 @@ async function loadNotifications() {
       return;
     }
 
-    // Render one list-group item per notification
-    // Unread: notification-unread background + fw-bold title + Mark as Read button
+    // List rendering
     list.innerHTML = items.map(n => `
       <div class="list-group-item ${n.is_read ? '' : 'notification-unread'}" id="notif-${n.id}">
         <div class="d-flex justify-content-between align-items-start flex-wrap gap-1">
@@ -66,8 +60,7 @@ async function loadNotifications() {
   }
 }
 
-// Mark a notification as read
-// PATCH /api/customers/notifications/:id/read; reloads the list on success.
+// Read status
 async function markRead(id) {
   try {
     const res = await fetch(
@@ -83,7 +76,7 @@ async function markRead(id) {
       return;
     }
 
-    // Reload to reflect read state without a full page refresh
+    // Refresh
     await loadNotifications();
   } catch {
     showError('Cannot reach the server.');

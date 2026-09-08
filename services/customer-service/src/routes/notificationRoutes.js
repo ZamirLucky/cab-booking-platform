@@ -1,8 +1,4 @@
-// notificationRoutes.js
-// Manages notification retrieval and read-status updates for customer-service.
-// GET   /notifications          — list all notifications for the authenticated user
-// PATCH /notifications/:id/read — mark a specific notification as read (protected)
-// POST  /notifications          — internal endpoint for creating notifications (called by other services)
+// Notification routes
 const express = require("express");
 const pool = require("../db/pool");
 const requireAuth = require("../middleware/requireAuth");
@@ -15,8 +11,7 @@ function createError(status, message) {
   return error;
 }
 
-// GET /notifications
-// Protected: returns notifications for the logged-in user only
+// Inbox
 router.get("/notifications", requireAuth, async (req, res, next) => {
   try {
     const result = await pool.query(
@@ -46,8 +41,7 @@ router.get("/notifications", requireAuth, async (req, res, next) => {
   }
 });
 
-// PATCH /notifications/:id/read
-// Protected: only marks the notification as read if it belongs to the logged-in user
+// Read status
 router.patch("/notifications/:id/read", requireAuth, async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -77,8 +71,7 @@ router.patch("/notifications/:id/read", requireAuth, async (req, res, next) => {
   }
 });
 
-// POST /notifications
-// Internal endpoint: later called by booking-service event handlers
+// Internal creation
 router.post("/notifications", async (req, res, next) => {
   try {
     const { user_id, type, title, message, payload } = req.body;

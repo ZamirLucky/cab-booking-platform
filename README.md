@@ -136,3 +136,21 @@ Fare, Payment, and Location checks are currently documented as manual workflows 
 - Each [component README](#components) owns that component's configuration, API contract, examples, and limitations.
 - [Web App documentation](web-app/README.md) owns the page flow, browser configuration, validation, and manual UI checks.
 - [Postman documentation](postman/README.md) owns the collection inventory and automated test instructions.
+
+## Screenshots
+
+![1788865865242](image/README/1788865865242.png)
+
+![1788865908218](image/README/1788865908218.png)
+
+![1788865751555](image/README/1788865751555.png)
+
+![1788869512186](image/README/1788869512186.png)
+
+![1788869714914](image/README/1788869714914.png)
+
+![1788869772597](image/README/1788869772597.png)
+
+![1788869964773](image/README/1788869964773.png)
+
+![1788869998619](image/README/1788869998619.png)

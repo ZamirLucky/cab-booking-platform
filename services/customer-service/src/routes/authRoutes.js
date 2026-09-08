@@ -1,8 +1,4 @@
-// authRoutes.js
-// Handles customer registration, login, and account retrieval for customer-service.
-// POST /register — create a new account with a bcrypt-hashed password
-// POST /login    — verify credentials and return a signed JWT
-// GET  /account  — return the authenticated customer's profile (protected)
+// Customer authentication routes
 const express = require("express");
 const bcrypt = require("bcrypt");
 const crypto = require("crypto");
@@ -18,7 +14,7 @@ function createError(status, message) {
   return error;
 }
 
-// POST / register
+// Registration
 router.post("/register", async (req, res, next) => {
   try {
     const { first_name, surname, email, password } = req.body;
@@ -103,7 +99,7 @@ router.post("/register", async (req, res, next) => {
   }
 });
 
-// POST /login
+// Login
 router.post("/login", async (req, res, next) => {
   try {
     const { email, password } = req.body;
@@ -171,7 +167,7 @@ router.post("/login", async (req, res, next) => {
   }
 });
 
-// GET / account
+// Account
 router.get("/account", requireAuth, async (req, res, next) => {
   try {
     const result = await pool.query(

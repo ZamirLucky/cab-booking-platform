@@ -1,5 +1,4 @@
-// Entry point for location-service.
-// Initialises Express, mounts favourite-location and weather routes, and registers the global error handler.
+// Location service entry point
 'use strict';
 
 require('dotenv').config();
@@ -13,15 +12,15 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Health check
+// Health
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', service: 'location-service' });
 });
 
-// Location routes — CRUD + weather
+// API routes
 app.use('/', locationRoutes);
 
-// Error handler — must be last
+// Error handling
 app.use(errorHandler);
 
 const PORT = process.env.PORT || 3005;

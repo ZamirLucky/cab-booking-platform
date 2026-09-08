@@ -1,6 +1,4 @@
-// paymentRoutes.js
-// Forwards payment requests from the gateway to payment-service.
-// All routes are protected — requireAuth verifies the JWT, forwardAuthHeader passes it downstream.
+// Payment proxy routes
 'use strict';
 
 const express = require('express');
@@ -22,7 +20,7 @@ function handleAxiosError(err, res, next) {
   next(err);
 }
 
-// POST /api/payments — process a payment for a booking (protected)
+// Payment creation
 router.post('/', requireAuth, forwardAuthHeader, async (req, res, next) => {
   try {
     const response = await axios.post(`${PAYMENT_URL()}/payments`, req.body, {
@@ -34,7 +32,7 @@ router.post('/', requireAuth, forwardAuthHeader, async (req, res, next) => {
   }
 });
 
-// GET /api/payments/:bookingId — retrieve payment details for a booking (protected)
+// Payment lookup
 router.get('/:bookingId', requireAuth, forwardAuthHeader, async (req, res, next) => {
   try {
     const response = await axios.get(

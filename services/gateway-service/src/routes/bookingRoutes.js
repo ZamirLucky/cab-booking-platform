@@ -1,6 +1,4 @@
-// bookingRoutes.js
-// Forwards all booking-service requests from the gateway to the downstream service.
-// All routes are protected — requireAuth runs before forwardAuthHeader.
+// Booking proxy routes
 'use strict';
 
 const express = require('express');
@@ -12,7 +10,7 @@ const router = express.Router();
 
 const BOOKING_URL = () => process.env.BOOKING_SERVICE_URL;
 
-// Helper: forward Axios errors correctly
+// Downstream errors
 function handleAxiosError(err, res, next) {
   if (err.response) {
     return res.status(err.response.status).json(err.response.data);
@@ -23,7 +21,7 @@ function handleAxiosError(err, res, next) {
   next(err);
 }
 
-// POST /api/bookings — create a new booking (protected)
+// Booking creation
 router.post('/', requireAuth, forwardAuthHeader, async (req, res, next) => {
   try {
     const response = await axios.post(`${BOOKING_URL()}/bookings`, req.body, {
@@ -35,8 +33,8 @@ router.post('/', requireAuth, forwardAuthHeader, async (req, res, next) => {
   }
 });
 
-// GET /api/bookings/current — list current bookings (protected)
-// Must be defined before /:id to prevent Express matching 'current' as an id parameter.
+// Current bookings
+// Route order: static paths must precede /:id.
 router.get('/current', requireAuth, forwardAuthHeader, async (req, res, next) => {
   try {
     const response = await axios.get(`${BOOKING_URL()}/bookings/current`, {
@@ -48,7 +46,7 @@ router.get('/current', requireAuth, forwardAuthHeader, async (req, res, next) =>
   }
 });
 
-// GET /api/bookings/past — list completed and cancelled bookings (protected)
+// Past bookings
 router.get('/past', requireAuth, forwardAuthHeader, async (req, res, next) => {
   try {
     const response = await axios.get(`${BOOKING_URL()}/bookings/past`, {
@@ -60,7 +58,7 @@ router.get('/past', requireAuth, forwardAuthHeader, async (req, res, next) => {
   }
 });
 
-// GET /api/bookings/:id — retrieve a single booking by ID (protected)
+// Booking lookup
 router.get('/:id', requireAuth, forwardAuthHeader, async (req, res, next) => {
   try {
     const response = await axios.get(`${BOOKING_URL()}/bookings/${req.params.id}`, {
@@ -72,7 +70,7 @@ router.get('/:id', requireAuth, forwardAuthHeader, async (req, res, next) => {
   }
 });
 
-// PATCH /api/bookings/:id/status — update booking status (protected)
+// Booking status
 router.patch('/:id/status', requireAuth, forwardAuthHeader, async (req, res, next) => {
   try {
     const response = await axios.patch(

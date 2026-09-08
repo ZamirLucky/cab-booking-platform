@@ -1,13 +1,11 @@
-// errorHandler.js
-// Global Express error handler for location-service.
-// Logs unexpected 500 errors and returns a structured JSON error response for all failures.
+// Global error handler
 'use strict';
 
 function errorHandler(err, req, res, next) { // eslint-disable-line no-unused-vars
   const status  = err.status || err.statusCode || 500;
   const message = err.message || 'Internal server error';
 
-  // Log server errors only
+  // Server errors
   if (status === 500 && process.env.NODE_ENV !== 'test') {
     console.error(`[${new Date().toISOString()}]`, err);
   }

@@ -1,15 +1,9 @@
-// requireAuth.js
-// Gateway-level JWT middleware — verifies the Bearer token before any request is forwarded.
-// Sets req.user = { id, email } on success; returns 401 immediately on failure.
+// Gateway authentication
 'use strict';
 
 const jwt = require('jsonwebtoken');
 
-/**
- * Gateway-level JWT verification.
- * Rejects requests with missing or invalid tokens before forwarding.
- * Sets req.user = { id, email } so route handlers can read the user identity.
- */
+/** Verifies the bearer token before forwarding the request. */
 function requireAuth(req, res, next) {
   const authHeader = req.headers.authorization;
 

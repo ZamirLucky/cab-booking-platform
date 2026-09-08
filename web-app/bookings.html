@@ -4,13 +4,12 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Cab Booking — My Bookings</title>
-  <!-- Bootstrap CSS -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" />
   <link rel="stylesheet" href="css/custom.css" />
 </head>
 <body class="bg-light">
 
-  <!-- Navbar (shared across all protected pages) -->
+  <!-- Navigation -->
   <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
     <div class="container-fluid">
       <a class="navbar-brand" href="dashboard.html">🚕 Cab Booking</a>
@@ -19,7 +18,6 @@
         <span class="navbar-toggler-icon"></span>
       </button>
       <div class="collapse navbar-collapse" id="main-nav">
-        <!-- Nav links left-aligned (me-auto); logout right -->
         <ul class="navbar-nav me-auto">
           <li class="nav-item"><a class="nav-link active" href="bookings.html">Bookings</a></li>
           <li class="nav-item"><a class="nav-link" href="payment.html">Payment</a></li>
@@ -33,7 +31,7 @@
 
   <div class="container py-4">
 
-    <!-- Page heading + New Booking trigger -->
+    <!-- Booking actions -->
     <div class="d-flex justify-content-between align-items-center mb-4">
       <h2 class="mb-0">My Bookings</h2>
       <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#booking-modal">
@@ -41,10 +39,9 @@
       </button>
     </div>
 
-    <!-- Booking-level error (shown by showBookingError) -->
     <div id="booking-error" class="alert alert-danger d-none" role="alert"></div>
 
-    <!-- Current bookings section -->
+    <!-- Current bookings -->
     <h5 class="mb-2">Current Bookings</h5>
     <div class="table-responsive mb-4">
       <table class="table table-bordered table-hover bg-white shadow-sm align-middle">
@@ -54,14 +51,13 @@
             <th>Cab</th><th class="text-center">Pax</th><th>Status</th>
           </tr>
         </thead>
-        <!-- Populated by loadCurrentBookings() in bookings.js -->
         <tbody id="current-tbody">
           <tr><td colspan="6" class="text-center text-muted py-3">Loading…</td></tr>
         </tbody>
       </table>
     </div>
 
-    <!-- Past bookings section -->
+    <!-- Past bookings -->
     <h5 class="mb-2">Past Bookings</h5>
     <div class="table-responsive">
       <table class="table table-bordered table-hover bg-white shadow-sm align-middle">
@@ -71,7 +67,6 @@
             <th>Cab</th><th class="text-center">Pax</th><th>Status</th>
           </tr>
         </thead>
-        <!-- Populated by loadPastBookings() in bookings.js -->
         <tbody id="past-tbody">
           <tr><td colspan="6" class="text-center text-muted py-3">Loading…</td></tr>
         </tbody>
@@ -80,7 +75,7 @@
 
   </div><!-- /container -->
 
-  <!-- New Booking modal -->
+  <!-- Booking form -->
   <div class="modal fade" id="booking-modal" tabindex="-1" aria-labelledby="booking-modal-label">
     <div class="modal-dialog">
       <div class="modal-content">
@@ -91,34 +86,28 @@
         </div>
 
         <div class="modal-body">
-          <!-- Modal-level error alert -->
           <div id="modal-error" class="alert alert-danger d-none" role="alert"></div>
 
-          <!-- Booking form: Bootstrap needs-validation -->
           <form id="booking-form" novalidate>
 
-            <!-- Pickup -->
             <div class="mb-3">
               <label for="b-start" class="form-label">Pickup location</label>
               <input type="text" class="form-control" id="b-start" placeholder="e.g. Valletta" required />
               <div class="invalid-feedback">Pickup location is required.</div>
             </div>
 
-            <!-- Dropoff -->
             <div class="mb-3">
               <label for="b-end" class="form-label">Dropoff location</label>
               <input type="text" class="form-control" id="b-end" placeholder="e.g. Sliema" required />
               <div class="invalid-feedback">Dropoff location is required.</div>
             </div>
 
-            <!-- Date/time: defaults to now + 5 min for convenience -->
             <div class="mb-3">
               <label for="b-datetime" class="form-label">Date &amp; time</label>
               <input type="datetime-local" class="form-control" id="b-datetime" required />
               <div class="invalid-feedback">Booking date and time are required.</div>
             </div>
 
-            <!-- Passengers -->
             <div class="mb-3">
               <label for="b-passengers" class="form-label">Passengers</label>
               <input type="number" class="form-control" id="b-passengers"
@@ -126,7 +115,6 @@
               <div class="invalid-feedback">Enter a number between 1 and 8.</div>
             </div>
 
-            <!-- Cab type -->
             <div class="mb-3">
               <label for="b-cab-type" class="form-label">Cab type</label>
               <select class="form-select" id="b-cab-type" required>
@@ -143,7 +131,6 @@
 
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-          <!-- Submit delegates to the form's submit event listener -->
           <button type="submit" form="booking-form" class="btn btn-primary">Book Now</button>
         </div>
 
@@ -151,30 +138,29 @@
     </div>
   </div>
 
-  <!-- Bootstrap JS bundle -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script src="js/config.js"></script>
   <script src="js/auth.js"></script>
   <script src="js/bookings.js"></script>
   <script>
-    // Guard: redirect to login if no token
+    // Session
     document.addEventListener('DOMContentLoaded', () => {
       guardPage();
 
-      // Default booking datetime to now + 5 minutes for convenience
+      // Default schedule
       const soon = new Date(Date.now() + 5 * 60 * 1000);
       document.getElementById('b-datetime').value = soon.toISOString().slice(0, 16);
 
-      // Load both booking tables on page entry
+      // Initial data
       loadCurrentBookings();
       loadPastBookings();
     });
 
-    // New booking form submit
+    // Booking creation
     document.getElementById('booking-form').addEventListener('submit', async function (e) {
       e.preventDefault();
 
-      // Bootstrap validation
+      // Validation
       this.classList.add('was-validated');
       if (!this.checkValidity()) return;
 
@@ -190,7 +176,7 @@
       };
 
       try {
-        // POST new booking via createBooking() from bookings.js
+        // Submission
         const res  = await createBooking(payload);
         const data = await res.json();
 
@@ -200,7 +186,7 @@
           return;
         }
 
-        // Close modal, reset form, and refresh the current bookings table
+        // Success state
         bootstrap.Modal.getInstance(document.getElementById('booking-modal')).hide();
         this.classList.remove('was-validated');
         this.reset();

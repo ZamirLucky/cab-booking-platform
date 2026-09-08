@@ -1,4 +1,4 @@
-// Configures PostgreSQL for Cloud SQL or local development.
+// PostgreSQL connection pool
 
 'use strict';
 
@@ -11,7 +11,7 @@ const instanceConnectionName =
 let poolConfig;
 
 if (instanceConnectionName) {
-  // Cloud Run exposes attached Cloud SQL instances through a Unix socket.
+  // Cloud SQL socket
   const requiredVariables = [
     'DB_USER',
     'DB_PASSWORD',
@@ -38,7 +38,7 @@ if (instanceConnectionName) {
     idleTimeoutMillis: 30000
   };
 } else {
-  // Local and direct connections use DATABASE_URL with optional SSL.
+  // Direct connection
   if (!process.env.DATABASE_URL) {
     throw new Error(
       'DATABASE_URL is missing. Check your local .env file.'
@@ -59,5 +59,5 @@ if (instanceConnectionName) {
   };
 }
 
-// Export one shared pool for all database queries in this service.
+// Shared pool
 module.exports = new Pool(poolConfig);

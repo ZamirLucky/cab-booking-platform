@@ -1,6 +1,4 @@
-// forwardAuthHeader.js
-// Copies the incoming Authorization header onto req.authHeader so route handlers
-// can pass it explicitly to downstream services via Axios.
+/** Preserves the bearer token for downstream requests. */
 'use strict';
 
 function forwardAuthHeader(req, res, next) {

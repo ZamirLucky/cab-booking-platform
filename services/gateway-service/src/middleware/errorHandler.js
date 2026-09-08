@@ -1,6 +1,4 @@
-// errorHandler.js
-// Global Express error handler for gateway-service.
-// Logs unexpected 500 errors and returns a structured JSON error response for all failures.
+// Global error handler
 'use strict';
 
 function errorHandler(err, req, res, next) { // eslint-disable-line no-unused-vars

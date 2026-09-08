@@ -1,13 +1,10 @@
-// requireAuth.js
-// JWT verification middleware for location-service.
-// Reads the Bearer token from Authorization header, verifies it, and sets req.user = { id, email }.
-// Returns 401 immediately if the token is missing, malformed, or expired.
+/** Verifies the bearer token and assigns the authenticated user. */
 'use strict';
 
 const jwt = require('jsonwebtoken');
 
 function requireAuth(req, res, next) {
-  // Header presence check
+  // Header validation
   const authHeader = req.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -16,13 +13,13 @@ function requireAuth(req, res, next) {
 
   const token = authHeader.split(' ')[1];
 
-  // Configuration guard
+  // Configuration
   if (!process.env.JWT_SECRET) {
     console.error('[requireAuth] JWT_SECRET is not set');
     return res.status(500).json({ error: 'Server configuration error' });
   }
 
-  // Token verification
+  // Verification
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     req.user = {

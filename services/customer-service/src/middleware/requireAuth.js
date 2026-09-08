@@ -1,7 +1,4 @@
-// requireAuth.js
-// Express middleware that verifies the JWT from the Authorization header.
-// Attaches decoded user data (id, email) to req.user for downstream route handlers.
-// Rejects unauthenticated or tampered requests with a 401 response.
+/** Verifies the bearer token and assigns the authenticated user. */
 const jwt = require("jsonwebtoken");
 
 function createAuthError(message) {
