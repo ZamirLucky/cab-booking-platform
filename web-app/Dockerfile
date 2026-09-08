@@ -1,15 +1,20 @@
 # Dockerfile for web-app
-# TODO: Complete during deployment phase (Google Cloud Run)
-# Serve static files via a lightweight HTTP server (e.g. nginx or serve)
 
 FROM node:20-alpine
 
 WORKDIR /app
 
-# TODO: COPY package*.json ./
-# TODO: RUN npm install --production
-# TODO: COPY . .
+# Install dependencies before copying source to improve layer caching.
+COPY package*.json ./
+RUN npm ci --omit=dev
+
+COPY server.js ./
+COPY *.html ./
+COPY css ./css
+COPY js ./js
+
+ENV NODE_ENV=production
 
 EXPOSE 8080
 
-# TODO: CMD to serve static files
+CMD ["npm", "start"]

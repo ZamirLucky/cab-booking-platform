@@ -1,7 +1,4 @@
-// paymentRoutes.js
-// TODO: POST /payments           - process a payment for a booking
-// TODO: GET  /payments           - list payment history for authenticated user
-// TODO: GET  /payments/:id       - get a single payment record
+// Payment routes
 
 'use strict';
 
@@ -11,37 +8,39 @@ const axios = require('axios');
 const pool = require('../db/pool');
 const requireAuth = require('../middleware/requireAuth');
 
+const {
+  getCloudRunAuthHeaders
+} = require('../utils/cloudRunAuth');
+
 const router = express.Router();
 
-// Multiplier tables — values match the assignment brief
+// Pricing rules
 const CAB_MULTIPLIERS = {
   Economic:  1.00,
   Premium:   1.20,
   Executive: 1.40
 };
 
-// Passengers multiplier: 1–4 passengers = 1.00, 5–8 passengers = 2.00 (assignment brief)
 function getPassengersMultiplier(passengers) {
   return passengers <= 4 ? 1.00 : 2.00;
 }
 
-// Daytime multiplier: reserved for future time-based pricing — always 1.00 for now
 function getDaytimeMultiplier() {
   return 1.00;
 }
 
-// POST /payments — process payment for a booking
+// Payment creation
 router.post('/payments', requireAuth, async (req, res, next) => {
   try {
     const { booking_id } = req.body;
     const userId = req.user.id;
 
-    // 1. Validate input
+    // Validation
     if (!booking_id || !String(booking_id).trim()) {
       return res.status(400).json({ error: 'booking_id is required' });
     }
 
-    // 2. Ownership check — booking must exist and belong to this user
+    // Booking ownership
     const bookingResult = await pool.query(
       `SELECT id, user_id, start_location, end_location, booking_datetime,
               passengers, cab_type, status
@@ -56,7 +55,7 @@ router.post('/payments', requireAuth, async (req, res, next) => {
 
     const booking = bookingResult.rows[0];
 
-    // 3. Duplicate payment check — run BEFORE status check so 409 takes precedence
+    // Idempotency
     const existingPayment = await pool.query(
       'SELECT id FROM payments WHERE booking_id = $1', [booking_id]
     );
@@ -64,16 +63,19 @@ router.post('/payments', requireAuth, async (req, res, next) => {
       return res.status(409).json({ error: 'Payment already exists for this booking' });
     }
 
-    // 4. Status check — only after confirming no payment exists
+    // Booking state
     if (booking.status !== 'current') {
       return res.status(400).json({
         error: `Cannot process payment for a booking with status '${booking.status}'`
       });
     }
 
-    // 5. Call Fare Estimation Service (internal service-to-service call — no user token)
-    const FARE_URL = process.env.FARE_SERVICE_URL;
-    if (!FARE_URL) {
+    // Fare service
+    const fareUrl = String(
+      process.env.FARE_SERVICE_URL || ''
+    ).replace(/\/+$/, '');
+
+    if (!fareUrl) {
       console.error('[paymentRoutes] FARE_SERVICE_URL is not set');
       return res.status(500).json({ error: 'Server configuration error' });
     }
@@ -82,14 +84,19 @@ router.post('/payments', requireAuth, async (req, res, next) => {
     let fareSnapshot;
 
     try {
-      const fareResponse = await axios.get(`${FARE_URL}/fare`, {
+      const cloudRunHeaders = await getCloudRunAuthHeaders(fareUrl);
+
+      const fareResponse = await axios.get(`${fareUrl}/fare`, {
         params: {
           start_location: booking.start_location,
           end_location: booking.end_location
-        }
+        },
+        headers: cloudRunHeaders
       });
+
       fareSnapshot = fareResponse.data;
       fareData = fareResponse.data.fare;
+
     } catch (fareErr) {
       console.error('[paymentRoutes] Fare service error:', fareErr.message);
       if (fareErr.response) {
@@ -98,9 +105,7 @@ router.post('/payments', requireAuth, async (req, res, next) => {
       return res.status(503).json({ error: 'Fare estimation service is unavailable' });
     }
 
-    // 6. Extract base fare from API response
-    // The RapidAPI Taxi Fare Calculator returns fares in price_in_cents.
-    // Use the first fare entry (daytime rate). Convert cents to decimal euros/pounds.
+    // Fare normalization
     const fares = fareData?.journey?.fares;
     if (!fares || fares.length === 0 || fares[0].price_in_cents === 'n/a') {
       return res.status(502).json({ error: 'Fare API did not return a usable fare estimate' });
@@ -108,12 +113,12 @@ router.post('/payments', requireAuth, async (req, res, next) => {
 
     const cabFare = parseFloat((fares[0].price_in_cents / 100).toFixed(2));
 
-    // 7. Apply multipliers
+    // Multipliers
     const cabMultiplier       = CAB_MULTIPLIERS[booking.cab_type] ?? 1.00;
     const daytimeMultiplier   = getDaytimeMultiplier();
     const passengersMultiplier = getPassengersMultiplier(booking.passengers);
 
-    // 8. Apply discount if user has discount_available = true
+    // Discount
     const userResult = await pool.query(
       'SELECT discount_available FROM users WHERE id = $1',
       [userId]
@@ -121,12 +126,12 @@ router.post('/payments', requireAuth, async (req, res, next) => {
     const discountAvailable = userResult.rows[0]?.discount_available ?? false;
     const discountMultiplier = discountAvailable ? 0.90 : 1.00;
 
-    // 9. Calculate total
+    // Total
     const totalPrice = parseFloat(
       (cabFare * cabMultiplier * daytimeMultiplier * passengersMultiplier * discountMultiplier).toFixed(2)
     );
 
-    // 10. Build JSONB calculation breakdown
+    // Audit snapshot
     const calculationBreakdown = {
       base_fare_from_api: cabFare,
       cab_type:           booking.cab_type,
@@ -142,7 +147,7 @@ router.post('/payments', requireAuth, async (req, res, next) => {
       end_location:       booking.end_location
     };
 
-    // 11. INSERT payment row
+    // Payment persistence
     const paymentId = crypto.randomUUID();
 
     const paymentResult = await pool.query(
@@ -167,13 +172,13 @@ router.post('/payments', requireAuth, async (req, res, next) => {
       ]
     );
 
-    // 12. Update booking status to completed
+    // Booking completion
     await pool.query(
       `UPDATE bookings SET status = 'completed' WHERE id = $1 AND user_id = $2`,
       [booking_id, userId]
     );
 
-    // 13. Reset discount if it was used
+    // Discount redemption
     if (discountAvailable) {
       await pool.query(
         'UPDATE users SET discount_available = false WHERE id = $1',
@@ -187,7 +192,7 @@ router.post('/payments', requireAuth, async (req, res, next) => {
   }
 });
 
-// GET /payments/:bookingId — retrieve payment for a booking
+// Payment lookup
 router.get('/payments/:bookingId', requireAuth, async (req, res, next) => {
   try {
     const result = await pool.query(
