@@ -1,12 +1,7 @@
-// errorHandler.js
-// TODO: Global Express error handler - return structured JSON error responses
+// Global error handler
 
 'use strict';
 
-/**
- * Global Express error handler for payment-service.
- * Four-parameter signature required by Express.
- */
 function errorHandler(err, req, res, next) { // eslint-disable-line no-unused-vars
   const status = err.status || err.statusCode || 500;
   const message = err.message || 'Internal server error';

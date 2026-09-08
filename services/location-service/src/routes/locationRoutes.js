@@ -1,7 +1,4 @@
-// locationRoutes.js
-// CRUD routes for favourite pickup locations plus a live weather lookup.
-// All five routes are protected — requireAuth sets req.user before any handler runs.
-// Weather data is fetched from WeatherAPI.com (forecast.json) and stored as JSONB.
+// Favourite location routes
 'use strict';
 
 const express    = require('express');
@@ -12,13 +9,13 @@ const requireAuth = require('../middleware/requireAuth');
 
 const router = express.Router();
 
-// POST /locations — add a favourite pickup location
+// Location creation
 router.post('/locations', requireAuth, async (req, res, next) => {
   try {
     const { label, address, latitude, longitude } = req.body;
     const userId = req.user.id;
 
-    // Input validation
+    // Validation
     if (!label || !String(label).trim()) {
       return res.status(400).json({ error: 'label is required' });
     }
@@ -42,7 +39,7 @@ router.post('/locations', requireAuth, async (req, res, next) => {
   }
 });
 
-// GET /locations — list all favourite locations for the logged-in user
+// Location list
 router.get('/locations', requireAuth, async (req, res, next) => {
   try {
     const result = await pool.query(
@@ -60,7 +57,7 @@ router.get('/locations', requireAuth, async (req, res, next) => {
   }
 });
 
-// PATCH /locations/:id — update label and/or address
+// Location updates
 router.patch('/locations/:id', requireAuth, async (req, res, next) => {
   try {
     const { id }    = req.params;
@@ -71,7 +68,7 @@ router.patch('/locations/:id', requireAuth, async (req, res, next) => {
       return res.status(400).json({ error: 'At least one of label or address is required' });
     }
 
-    // Ownership check before update
+    // Ownership
     const existing = await pool.query(
       'SELECT id FROM favourite_locations WHERE id = $1 AND user_id = $2',
       [id, userId]
@@ -81,7 +78,7 @@ router.patch('/locations/:id', requireAuth, async (req, res, next) => {
       return res.status(404).json({ error: 'Location not found' });
     }
 
-    // Build dynamic SET clause — only update provided fields
+    // Partial update
     const fields = [];
     const values = [];
     let idx = 1;
@@ -107,7 +104,7 @@ router.patch('/locations/:id', requireAuth, async (req, res, next) => {
   }
 });
 
-// DELETE /locations/:id — remove a favourite location
+// Location deletion
 router.delete('/locations/:id', requireAuth, async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -128,13 +125,13 @@ router.delete('/locations/:id', requireAuth, async (req, res, next) => {
   }
 });
 
-// GET /locations/:id/weather — fetch live weather and store JSONB snapshot
+// Weather lookup
 router.get('/locations/:id/weather', requireAuth, async (req, res, next) => {
   try {
     const { id } = req.params;
     const userId = req.user.id;
 
-    // 1. Confirm location exists and belongs to this user
+    // Ownership
     const locResult = await pool.query(
       `SELECT id, label, address
        FROM favourite_locations
@@ -148,7 +145,7 @@ router.get('/locations/:id/weather', requireAuth, async (req, res, next) => {
 
     const location = locResult.rows[0];
 
-    // 2. Validate env vars before calling external API
+    // Configuration
     const WEATHER_API_KEY      = process.env.WEATHER_API_KEY;
     const WEATHER_API_BASE_URL = process.env.WEATHER_API_BASE_URL;
 
@@ -157,7 +154,7 @@ router.get('/locations/:id/weather', requireAuth, async (req, res, next) => {
       return res.status(500).json({ error: 'Server configuration error' });
     }
 
-    // 3. Call WeatherAPI.com — forecast.json with q from saved address
+    // Weather service
     let weatherSnapshot;
 
     try {
@@ -191,7 +188,7 @@ router.get('/locations/:id/weather', requireAuth, async (req, res, next) => {
       return res.status(503).json({ error: 'Weather service is unavailable' });
     }
 
-    // 4. Persist snapshot in JSONB column
+    // Snapshot persistence
     await pool.query(
       `UPDATE favourite_locations
        SET weather_snapshot = $1, updated_at = NOW()
@@ -199,7 +196,7 @@ router.get('/locations/:id/weather', requireAuth, async (req, res, next) => {
       [JSON.stringify(weatherSnapshot), id]
     );
 
-    // 5. Build readable summary from API response
+    // Response mapping
     const current = weatherSnapshot.current;
     const weather = {
       temp_c:     current?.temp_c,

@@ -1,17 +1,14 @@
-// payment.js
-// Payment API calls and result rendering helpers.
-// Loaded on payment.html.
+// Payment helpers
 'use strict';
 
-// Render calculation breakdown
-// Converts the JSONB breakdown object into a Bootstrap table for demo evidence.
+// Breakdown rendering
 function renderBreakdown(breakdown) {
   if (!breakdown || typeof breakdown !== 'object') {
     return '<p class="text-muted mb-0">No breakdown available.</p>';
   }
   const rows = Object.entries(breakdown)
     .map(([k, v]) => {
-      // Highlight total/price row with the breakdown-total CSS class
+      // Total styling
       const isTotal = /total|price/i.test(k);
       return `<tr class="${isTotal ? 'breakdown-total' : ''}">
         <td class="text-muted text-capitalize">${k.replace(/_/g, ' ')}</td>
@@ -22,8 +19,7 @@ function renderBreakdown(breakdown) {
   return `<table class="table table-sm table-borderless mb-0">${rows}</table>`;
 }
 
-// Render a full payment summary into #payment-summary
-// Called after a successful POST or when an existing payment is found.
+// Payment summary
 function renderPaymentSummary(payment) {
   const summary = document.getElementById('payment-summary');
   if (!summary) return;
@@ -47,8 +43,7 @@ function renderPaymentSummary(payment) {
   summary.classList.remove('d-none');
 }
 
-// Fetch an existing payment by booking ID
-// Returns the payment object if already paid, null on 404, throws on other errors.
+// Payment lookup
 async function loadPayment(bookingId) {
   const res = await fetch(`${GATEWAY_URL}/api/payments/${bookingId}`, { headers: authHeaders() });
   if (res.status === 404) return null;
@@ -59,8 +54,7 @@ async function loadPayment(bookingId) {
   return res.json();
 }
 
-// Submit a new payment
-// Returns the raw fetch Response for the caller to handle.
+// Payment submission
 async function submitPayment(bookingId) {
   return fetch(`${GATEWAY_URL}/api/payments`, {
     method:  'POST',

@@ -1,6 +1,4 @@
-// errorHandler.js
-// Global Express error handler for customer-service.
-// Catches errors passed via next(err) and returns a structured JSON response with the appropriate HTTP status code.
+// Global error handler
 function errorHandler(err, req, res, next) {
   const status = err.status || err.statusCode || 500;
   const message = err.message || "Internal server error";

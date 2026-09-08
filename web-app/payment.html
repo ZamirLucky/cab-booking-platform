@@ -4,13 +4,12 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Cab Booking — Payment</title>
-  <!-- Bootstrap CSS -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" />
   <link rel="stylesheet" href="css/custom.css" />
 </head>
 <body class="bg-light">
 
-  <!-- Navbar (shared across all protected pages) -->
+  <!-- Navigation -->
   <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
     <div class="container-fluid">
       <a class="navbar-brand" href="dashboard.html">🚕 Cab Booking</a>
@@ -19,7 +18,6 @@
         <span class="navbar-toggler-icon"></span>
       </button>
       <div class="collapse navbar-collapse" id="main-nav">
-        <!-- Nav links left-aligned (me-auto); logout right -->
         <ul class="navbar-nav me-auto">
           <li class="nav-item"><a class="nav-link" href="bookings.html">Bookings</a></li>
           <li class="nav-item"><a class="nav-link active" href="payment.html">Payment</a></li>
@@ -35,31 +33,27 @@
 
     <h2 class="mb-4">Payment</h2>
 
-    <!-- Global error alert -->
     <div id="pay-error" class="alert alert-danger d-none" role="alert"></div>
 
-    <!-- Pay panel: shown when a booking_id is known but not yet paid -->
+    <!-- Payment confirmation -->
     <div id="pay-panel" class="d-none mb-4">
       <div class="card shadow-sm">
         <div class="card-header bg-primary text-white fw-semibold">Confirm Payment</div>
         <div class="card-body">
           <p class="mb-1">
             <span class="text-muted">Booking ID:</span>
-            <!-- Pre-filled from URL ?id= param -->
             <code id="pay-booking-id" class="user-select-all"></code>
           </p>
           <p class="text-muted small mt-2">
             The fare will be calculated using the multipliers for your cab type,
             passenger count, and any available loyalty discount.
           </p>
-          <!-- Pay button: disabled during processing -->
           <button id="pay-btn" class="btn btn-success">Pay Now</button>
         </div>
       </div>
     </div>
 
-    <!-- Lookup panel: shown when no ?id= is in the URL.
-         Fetches the user's current bookings so they can pick one — no UUID needed. -->
+    <!-- Booking selection -->
     <div id="lookup-panel" class="d-none mb-4">
       <div class="card shadow-sm">
         <div class="card-header bg-secondary text-white fw-semibold">Select a Booking to Pay</div>
@@ -71,19 +65,17 @@
       </div>
     </div>
 
-    <!-- Payment summary: shown after POST /api/payments or when booking is already paid -->
+    <!-- Payment summary -->
     <div id="payment-summary" class="d-none"></div>
 
-  </div><!-- /container -->
+  </div>
 
-  <!-- Bootstrap JS bundle -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script src="js/config.js"></script>
   <script src="js/auth.js"></script>
   <script src="js/payment.js"></script>
   <script>
-    // Format ISO datetime → human-readable (duplicated from bookings.js because
-    // payment.html does not load bookings.js).
+    // Date formatting
     function fmtDate(iso) {
       if (!iso) return '—';
       return new Date(iso).toLocaleString('en-GB', {
@@ -95,20 +87,19 @@
     document.addEventListener('DOMContentLoaded', async () => {
       guardPage();
 
-      // Read optional ?id= param passed from bookings.html Pay link
+      // Initialization
       const bookingId = new URLSearchParams(window.location.search).get('id');
 
       if (bookingId) {
         await initWithBookingId(bookingId);
       } else {
-        // No URL param — show the user's current bookings so they can pick one.
-        // They should never need to paste a UUID.
+        // Booking selection
         document.getElementById('lookup-panel').classList.remove('d-none');
         await loadBookingsForPayment();
       }
     });
 
-    // Fetch current bookings and render a selectable list.
+    // Booking list
     async function loadBookingsForPayment() {
       const container = document.getElementById('bookings-for-payment');
       try {
@@ -129,7 +120,7 @@
           return;
         }
 
-        // Render a row per booking — user picks one to pay for.
+        // Booking rows
         container.innerHTML = data.map(b => `
           <div class="d-flex justify-content-between align-items-center
                       border-bottom px-3 py-2">
@@ -150,14 +141,13 @@
       }
     }
 
-    // Called when the user clicks Pay on a booking row in the selector.
+    // Selected booking
     async function selectBooking(bookingId) {
       document.getElementById('lookup-panel').classList.add('d-none');
       await initWithBookingId(bookingId);
     }
 
-    // Initialise page for a known booking ID
-    // Checks for an existing payment first; shows Pay panel if not yet paid.
+    // Payment state
     async function initWithBookingId(bookingId) {
       const payError = document.getElementById('pay-error');
       payError.classList.add('d-none');
@@ -166,10 +156,10 @@
         const existing = await loadPayment(bookingId);
 
         if (existing) {
-          // Already paid — show summary only, no action needed
+          // Existing payment
           renderPaymentSummary(existing);
         } else {
-          // Not yet paid — show confirm panel with booking ID
+          // Payment confirmation
           document.getElementById('pay-booking-id').textContent = bookingId;
           document.getElementById('pay-panel').classList.remove('d-none');
 
@@ -181,14 +171,13 @@
       }
     }
 
-    // Process a new payment
-    // Calls submitPayment(), hides the pay panel, and renders the breakdown on success.
+    // Payment processing
     async function processPayment(bookingId) {
       const payError = document.getElementById('pay-error');
       const payBtn   = document.getElementById('pay-btn');
       payError.classList.add('d-none');
 
-      // Disable button to prevent double-submission
+      // Submission lock
       payBtn.disabled    = true;
       payBtn.textContent = 'Processing…';
 
@@ -204,7 +193,7 @@
           return;
         }
 
-        // Success: hide pay panel and display confirmed summary
+        // Success state
         document.getElementById('pay-panel').classList.add('d-none');
         renderPaymentSummary(data);
       } catch {
@@ -215,9 +204,6 @@
       }
     }
 
-    // Note: manual UUID lookup form removed.
-    // Payment is initiated either via the Pay button on bookings.html
-    // (?id= URL param) or by selecting a booking from the list above.
   </script>
 </body>
 </html>

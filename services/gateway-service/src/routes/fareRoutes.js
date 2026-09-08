@@ -1,7 +1,4 @@
-// fareRoutes.js
-// Forwards fare estimation requests from the gateway to fare-estimation-service.
-// The GET /api/fare route is protected — frontend users must be logged in.
-// Payment-service calls fare-estimation-service directly (bypasses the gateway).
+// Fare proxy routes
 'use strict';
 
 const express = require('express');
@@ -23,7 +20,7 @@ function handleAxiosError(err, res, next) {
   next(err);
 }
 
-// GET /api/fare?start_location=...&end_location=... — estimate fare (protected)
+// Fare lookup
 router.get('/', requireAuth, forwardAuthHeader, async (req, res, next) => {
   try {
     const response = await axios.get(`${FARE_URL()}/fare`, {

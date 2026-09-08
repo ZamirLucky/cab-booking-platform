@@ -1,16 +1,10 @@
-// requireAuth.js
-// Booking-service JWT middleware — verifies the Bearer token on all protected booking routes.
-// Sets req.user = { id, email } on success; returns 401 immediately on failure.
+// Booking authentication
 
 'use strict';
 
 const jwt = require('jsonwebtoken');
 
-/**
- * Booking-service JWT verification.
- * Rejects requests with missing or invalid tokens.
- * Sets req.user = { id, email } for downstream handlers.
- */
+/** Verifies the bearer token and assigns the authenticated user. */
 function requireAuth(req, res, next) {
   const authHeader = req.headers.authorization;
 

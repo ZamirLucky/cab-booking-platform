@@ -1,10 +1,4 @@
-// bookingRoutes.js
-// Handles all booking CRUD operations and status updates for booking-service.
-// POST   /bookings             — create a new booking and emit booking.created event
-// GET    /bookings/current     — list bookings with status 'current' for the authenticated user
-// GET    /bookings/past        — list bookings with status 'completed' or 'cancelled'
-// GET    /bookings/:id         — get a single booking (ownership enforced)
-// PATCH  /bookings/:id/status  — update status to 'completed' or 'cancelled'; emits booking.completed on completion
+// Booking routes
 
 'use strict';
 
@@ -19,12 +13,12 @@ const router = express.Router();
 const VALID_CAB_TYPES = ['Economic', 'Premium', 'Executive'];
 const VALID_STATUSES = ['completed', 'cancelled'];
 
-// POST /bookings — create a new booking
+// Booking creation
 router.post('/bookings', requireAuth, async (req, res, next) => {
   try {
     const { start_location, end_location, booking_datetime, passengers, cab_type } = req.body;
 
-    // Validate required fields
+    // Validation
     if (!start_location || !String(start_location).trim()) {
       return res.status(400).json({ error: 'start_location is required' });
     }
@@ -57,7 +51,7 @@ router.post('/bookings', requireAuth, async (req, res, next) => {
 
     const booking = result.rows[0];
 
-    // Emit booking.created event for cab-ready notification (fires after 3 minutes)
+    // Cab-ready notification
     bookingEmitter.emit('booking.created', booking);
 
     return res.status(201).json(booking);
@@ -66,9 +60,8 @@ router.post('/bookings', requireAuth, async (req, res, next) => {
   }
 });
 
-// GET /bookings/current — list current bookings for logged-in user
-// IMPORTANT: This route must be defined before GET /bookings/:id
-// Otherwise Express matches "current" as the :id parameter.
+// Current bookings
+// Route order: static paths must precede /:id.
 router.get('/bookings/current', requireAuth, async (req, res, next) => {
   try {
     const result = await pool.query(
@@ -84,7 +77,7 @@ router.get('/bookings/current', requireAuth, async (req, res, next) => {
   }
 });
 
-// GET /bookings/past — list completed/cancelled bookings
+// Past bookings
 router.get('/bookings/past', requireAuth, async (req, res, next) => {
   try {
     const result = await pool.query(
@@ -100,7 +93,7 @@ router.get('/bookings/past', requireAuth, async (req, res, next) => {
   }
 });
 
-// GET /bookings/:id — get a single booking (ownership enforced)
+// Booking lookup
 router.get('/bookings/:id', requireAuth, async (req, res, next) => {
   try {
     const result = await pool.query(
@@ -118,9 +111,7 @@ router.get('/bookings/:id', requireAuth, async (req, res, next) => {
   }
 });
 
-// PATCH /bookings/:id/status — update booking status
-// Used for demo and testing (complete or cancel a booking).
-// Also triggers the discount event when status becomes 'completed'.
+// Status updates
 router.patch('/bookings/:id/status', requireAuth, async (req, res, next) => {
   try {
     const { status } = req.body;
@@ -143,7 +134,7 @@ router.patch('/bookings/:id/status', requireAuth, async (req, res, next) => {
 
     const booking = result.rows[0];
 
-    // Emit booking.completed for discount check
+    // Discount eligibility
     if (status === 'completed') {
       bookingEmitter.emit('booking.completed', { userId: req.user.id });
     }
@@ -155,4 +146,3 @@ router.patch('/bookings/:id/status', requireAuth, async (req, res, next) => {
 });
 
 module.exports = router;
-

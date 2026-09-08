@@ -1,5 +1,4 @@
-// Runs a one-off connectivity check against the PostgreSQL database for booking-service.
-// Queries the server time to confirm the connection is live, then closes the pool.
+// Database connectivity check
 const pool = require("./pool");
 
 async function testConnection() {

@@ -1,6 +1,4 @@
-// errorHandler.js
-// Global Express error handler for booking-service.
-// Logs unexpected 500 errors outside test environments and returns structured JSON error responses.
+// Global error handler
 
 'use strict';
 

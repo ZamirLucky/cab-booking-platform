@@ -1,23 +1,19 @@
-// locations.js
-// Favourite location API calls and list rendering helpers.
-// Loaded on locations.html.
+// Favourite location helpers
 'use strict';
 
-// Escape helpers (prevent XSS in innerHTML / data attributes)
+// HTML escaping
 function escapeHtml(str) {
   return String(str)
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
 }
 
-// Load all favourite locations
-// Fetches the user's saved locations and renders them into #locations-list.
-// Uses event delegation — attaches a single click listener on the container.
+// Location list
 async function loadLocations() {
   const list = document.getElementById('locations-list');
   if (!list) return;
 
-  // Attach delegated click handler once; subsequent reloads reuse it
+  // Event delegation
   if (!list.dataset.listenerBound) {
     list.addEventListener('click', handleLocClick);
     list.dataset.listenerBound = '1';
@@ -31,7 +27,7 @@ async function loadLocations() {
 
     if (!data.length) { list.innerHTML = '<p class="text-muted">No saved locations yet.</p>'; return; }
 
-    // Render one card per location; action buttons carry data-* attrs for delegation
+    // Card rendering
     list.innerHTML = data.map(loc => `
       <div class="card mb-3 shadow-sm" id="loc-card-${loc.id}">
         <div class="card-body">
@@ -40,7 +36,6 @@ async function loadLocations() {
               <h6 class="card-title fw-semibold mb-0">${escapeHtml(loc.label)}</h6>
               <p class="text-muted small mb-0">${escapeHtml(loc.address)}</p>
             </div>
-            <!-- Action buttons carry data-action and location data -->
             <div class="d-flex gap-2 flex-shrink-0">
               <button class="btn btn-sm btn-outline-secondary"
                       data-action="edit"
@@ -61,7 +56,6 @@ async function loadLocations() {
               </button>
             </div>
           </div>
-          <!-- Weather panel: initially hidden; populated by toggleWeather() -->
           <div id="weather-${loc.id}" class="mt-3 d-none"></div>
         </div>
       </div>`).join('');
@@ -70,21 +64,19 @@ async function loadLocations() {
   }
 }
 
-// Delegated click handler for the locations list
+// Delegated actions
 function handleLocClick(e) {
   const btn = e.target.closest('[data-action]');
   if (!btn) return;
 
   const { action, id, label, address } = btn.dataset;
 
-  // Dispatch to the appropriate handler based on data-action
   if (action === 'edit')    openEditModal(id, label, address);
   if (action === 'weather') toggleWeather(id);
   if (action === 'delete')  deleteLocation(id);
 }
 
-// Add a new favourite location
-// Returns the raw fetch Response for the caller to handle.
+// Location creation
 async function addLocation(payload) {
   return fetch(`${GATEWAY_URL}/api/locations`, {
     method:  'POST',
@@ -93,8 +85,7 @@ async function addLocation(payload) {
   });
 }
 
-// Update label and/or address for a location
-// Returns the raw fetch Response for the caller to handle.
+// Location updates
 async function updateLocation(id, payload) {
   return fetch(`${GATEWAY_URL}/api/locations/${id}`, {
     method:  'PATCH',
@@ -103,8 +94,7 @@ async function updateLocation(id, payload) {
   });
 }
 
-// Delete a location
-// Removes the card from the DOM on success without a full list reload.
+// Location deletion
 async function deleteLocation(id) {
   if (!confirm('Delete this location?')) return;
 
@@ -120,11 +110,11 @@ async function deleteLocation(id) {
       return;
     }
 
-    // Remove the card directly; cheaper than re-fetching the whole list
+    // Local removal
     const card = document.getElementById(`loc-card-${id}`);
     if (card) card.remove();
 
-    // Show empty state if nothing remains
+    // Empty state
     const list = document.getElementById('locations-list');
     if (list && !list.querySelector('.card')) {
       list.innerHTML = '<p class="text-muted">No saved locations yet.</p>';
@@ -134,13 +124,12 @@ async function deleteLocation(id) {
   }
 }
 
-// Toggle weather panel for a location
-// Fetches weather on first invocation; subsequent clicks show/hide the cached result.
+// Weather panel
 async function toggleWeather(id) {
   const panel = document.getElementById(`weather-${id}`);
   if (!panel) return;
 
-  // Cache hit: just toggle visibility
+  // Cached response
   if (panel.dataset.loaded) { panel.classList.toggle('d-none'); return; }
 
   panel.innerHTML = '<span class="text-muted small">Loading weather…</span>';
@@ -155,7 +144,7 @@ async function toggleWeather(id) {
       return;
     }
 
-    // Render weather summary; condition, temperature, humidity, wind
+    // Weather rendering
     const w = data.weather;
     panel.innerHTML = `
       <div class="alert alert-info py-2 mb-0 small">
@@ -173,8 +162,7 @@ async function toggleWeather(id) {
   }
 }
 
-// Open edit modal pre-filled for a location
-// Called from the delegated click handler via data-action="edit".
+// Edit state
 function openEditModal(id, label, address) {
   document.getElementById('edit-loc-id').value      = id;
   document.getElementById('edit-loc-label').value   = label;

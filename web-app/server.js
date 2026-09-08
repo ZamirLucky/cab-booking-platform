@@ -8,7 +8,7 @@ const PORT = process.env.PORT || 8080;
 const GATEWAY_URL =
   process.env.GATEWAY_URL || 'http://localhost:4000';
 
-// Generate the browser configuration from the Cloud Run environment variable.
+// Runtime configuration
 app.get('/js/config.js', (req, res) => {
   res.set('Cache-Control', 'no-store');
   res.type('application/javascript');

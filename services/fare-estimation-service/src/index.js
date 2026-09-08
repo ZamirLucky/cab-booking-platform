@@ -1,5 +1,4 @@
-// Entry point for fare-estimation-service.
-// Initialises Express, mounts the fare route, and starts the server. No database connection needed.
+// Fare estimation service entry point
 'use strict';
 
 require('dotenv').config();
@@ -13,15 +12,15 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Health check
+// Health
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', service: 'fare-estimation-service' });
 });
 
-// Fare routes
+// API routes
 app.use('/', fareRoutes);
 
-// Error handler — must be last
+// Error handling
 app.use(errorHandler);
 
 const PORT = process.env.PORT || 3004;

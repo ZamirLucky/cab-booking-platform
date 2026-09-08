@@ -1,6 +1,4 @@
-// locationRoutes.js
-// Forwards favourite-location requests from the gateway to location-service.
-// All routes are protected — requireAuth verifies the JWT, forwardAuthHeader passes it downstream.
+// Location proxy routes
 'use strict';
 
 const express = require('express');
@@ -22,7 +20,7 @@ function handleAxiosError(err, res, next) {
   next(err);
 }
 
-// POST /api/locations — save a new favourite location (protected)
+// Location creation
 router.post('/', requireAuth, forwardAuthHeader, async (req, res, next) => {
   try {
     const response = await axios.post(`${LOCATION_URL()}/locations`, req.body, {
@@ -34,7 +32,7 @@ router.post('/', requireAuth, forwardAuthHeader, async (req, res, next) => {
   }
 });
 
-// GET /api/locations — list all favourite locations for the user (protected)
+// Location list
 router.get('/', requireAuth, forwardAuthHeader, async (req, res, next) => {
   try {
     const response = await axios.get(`${LOCATION_URL()}/locations`, {
@@ -46,8 +44,7 @@ router.get('/', requireAuth, forwardAuthHeader, async (req, res, next) => {
   }
 });
 
-// GET /api/locations/:id/weather — get weather for a saved location (protected)
-// Must be defined before /:id to prevent Express matching 'weather' as the id segment.
+// Weather lookup
 router.get('/:id/weather', requireAuth, forwardAuthHeader, async (req, res, next) => {
   try {
     const response = await axios.get(
@@ -60,7 +57,7 @@ router.get('/:id/weather', requireAuth, forwardAuthHeader, async (req, res, next
   }
 });
 
-// PATCH /api/locations/:id — partially update a favourite location (protected)
+// Location updates
 router.patch('/:id', requireAuth, forwardAuthHeader, async (req, res, next) => {
   try {
     const response = await axios.patch(
@@ -74,7 +71,7 @@ router.patch('/:id', requireAuth, forwardAuthHeader, async (req, res, next) => {
   }
 });
 
-// DELETE /api/locations/:id — remove a favourite location (protected)
+// Location deletion
 router.delete('/:id', requireAuth, forwardAuthHeader, async (req, res, next) => {
   try {
     const response = await axios.delete(

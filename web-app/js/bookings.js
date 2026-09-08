@@ -1,9 +1,7 @@
-// bookings.js
-// Booking API calls and DOM rendering helpers.
-// Loaded on bookings.html (and passively on dashboard.html).
+// Booking helpers
 'use strict';
 
-// Converts ISO string to a human-readable local date/time.
+// Date formatting
 function formatDate(iso) {
   if (!iso) return '—';
   return new Date(iso).toLocaleString('en-GB', {
@@ -12,20 +10,19 @@ function formatDate(iso) {
   });
 }
 
-// Returns a Bootstrap badge element matching the booking status.
+// Status styling
 function statusBadge(status) {
   const map = { current: 'primary', completed: 'success', cancelled: 'secondary' };
   const cls = map[status] || 'dark';
   return `<span class="badge bg-${cls} text-capitalize">${status}</span>`;
 }
 
-// Empty-state row
+// Empty state
 function emptyRow(cols, msg) {
   return `<tr><td colspan="${cols}" class="text-center text-muted py-3">${msg}</td></tr>`;
 }
 
-// Load current bookings
-// Fetches status='current' bookings and renders them into #current-tbody.
+// Current bookings
 async function loadCurrentBookings() {
   const tbody = document.getElementById('current-tbody');
   if (!tbody) return;
@@ -44,9 +41,7 @@ async function loadCurrentBookings() {
       return;
     }
 
-    // Render one row per booking.
-    // Pay navigates to payment.html with the booking ID pre-filled.
-    // Cancel PATCHes status to 'cancelled'.
+    // Row actions
     tbody.innerHTML = data.map(b => `
       <tr>
         <td>${b.start_location}</td>
@@ -66,8 +61,7 @@ async function loadCurrentBookings() {
   }
 }
 
-// Load past bookings
-// Fetches completed/cancelled bookings and renders them into #past-tbody.
+// Past bookings
 async function loadPastBookings() {
   const tbody = document.getElementById('past-tbody');
   if (!tbody) return;
@@ -86,8 +80,7 @@ async function loadPastBookings() {
       return;
     }
 
-    // Past bookings are read-only — no actions needed.
-    // Payment has already been processed (status=completed) or booking was cancelled.
+    // Read-only rows
     tbody.innerHTML = data.map(b => `
       <tr>
         <td>${b.start_location}</td>
@@ -102,8 +95,7 @@ async function loadPastBookings() {
   }
 }
 
-// Create a booking
-// POSTs a new booking payload; returns the raw fetch Response for the caller to handle.
+// Booking creation
 async function createBooking(payload) {
   return fetch(`${GATEWAY_URL}/api/bookings`, {
     method:  'POST',
@@ -112,8 +104,7 @@ async function createBooking(payload) {
   });
 }
 
-// Cancel a booking
-// PATCHes status to 'cancelled', then refreshes both booking tables.
+// Booking cancellation
 async function cancelBooking(id) {
   if (!confirm('Cancel this booking?')) return;
 
@@ -130,7 +121,7 @@ async function cancelBooking(id) {
       return;
     }
 
-    // Refresh both tables after a successful cancel
+    // Refresh
     await loadCurrentBookings();
     await loadPastBookings();
   } catch {

@@ -1,16 +1,11 @@
-/* custom.css
- * Project-specific overrides on top of Bootstrap 5.
- * Covers notification states, empty states, payment breakdown, and button UX.
- */
+/* Application styles */
 
-/* --- Notification unread highlight (Task I) ---
- * Applied to list-group items where is_read = false. */
+/* Unread notifications */
 .notification-unread {
   background-color: #f0f4ff;
 }
 
-/* --- Empty state (Task J) ---
- * Used when a list has no items to display. */
+/* Empty states */
 .empty-state {
   color: #6c757d;
   font-style: italic;
@@ -18,15 +13,13 @@
   text-align: center;
 }
 
-/* --- Payment breakdown total row (Task G) ---
- * Bolds the final total row in the calculation_breakdown table. */
+/* Payment totals */
 .breakdown-total td {
   font-weight: 700;
   background-color: #f8f9fa;
 }
 
-/* --- Disabled button UX (Task M) ---
- * Communicates non-interactive state clearly during fetch operations. */
+/* Disabled actions */
 button:disabled {
   opacity: 0.65;
   cursor: not-allowed;
