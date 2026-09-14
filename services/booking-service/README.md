@@ -2,55 +2,27 @@
 
 Creates and retrieves user-owned cab bookings, updates booking statuses, and emits booking-related notification events through Node.js `EventEmitter`. The service schedules a cab-ready notification three minutes after a booking is created and checks discount eligibility when a booking is marked as completed through this service.
 
-**Port:** `3002`
-
 ---
 
 ## Quick Start
 
-From the repository root:
-
-```powershell
-cd services/booking-service
-npm install
-Copy-Item .env.example .env
-# Fill .env with real local values before starting the service.
-npm run dev
-```
-
-Expected output:
-
-```text
-booking-service running on port 3002
-```
-
-Health check:
-
-```powershell
-curl.exe http://localhost:3002/health
-# { "status": "ok", "service": "booking-service" }
-```
-
----
+Use the [repository local setup](../../README.md#local-setup) for installation, environment files, ports, and startup.
 
 ## Environment Variables
 
-Copy `.env.example` to `.env` and replace its placeholder values.
+[Shared configuration](../../README.md#deployment-configuration) defines `PORT`, `NODE_ENV`, JWT settings, and database connection modes. Hosted values and secrets are listed in the [deployment bindings](../../README.md#environment-bindings).
 
-| Variable                 | Required    | Description                                                                                                               |
-| ------------------------ | ----------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `PORT`                 | No          | Defaults to`3002`                                                                                                       |
-| `NODE_ENV`             | No          | Use`development` locally; `test` suppresses unexpected-error logging                                                  |
-| `JWT_SECRET`           | Yes         | Must match the secret used by Customer Service and Gateway Service                                                        |
-| `DATABASE_URL`         | Yes         | PostgreSQL connection string; the service fails at startup when it is absent                                              |
-| `DB_SSL`               | No          | Set to`true` for the current Cloud SQL connection or `false` for local PostgreSQL; omitted values behave as `false` |
-| `CUSTOMER_SERVICE_URL` | Conditional | Required by the cab-ready and discount handlers; use`http://localhost:3001` locally                                     |
+| Variable                 | Purpose                                                                            |
+| ------------------------ | ---------------------------------------------------------------------------------- |
+| `CUSTOMER_SERVICE_URL` | Customer service origin for notification delivery; required when processing events |
 
 ## Endpoints
 
+Examples use local URLs. In Cloud Run, all direct routes, including `/health`, require IAM invocation. See the [service authentication model](../../README.md#identity-and-access).
+
 Frontend and external client requests should go through the Gateway at `http://localhost:4000`. The `/bookings` paths are direct Booking Service routes and are mainly useful for isolated service testing.
 
-### Public
+### Routes without an application JWT
 
 | Method  | Direct service route | Purpose              |
 | ------- | -------------------- | -------------------- |
@@ -80,7 +52,7 @@ Requests made through the Gateway are verified there before forwarding. Booking 
 | `passengers`       | Required; parsed with`parseInt`, and the resulting value must be between 1 and 8   |
 | `cab_type`         | Must be exactly one of`Economic`, `Premium`, or `Executive`                    |
 
-The current implementation assumes both location values are strings when it calls `.trim()`. It also does not perform strict integer-type validation before parsing `passengers`. These are recorded under [Known Limitations and Future Improvements](#known-limitations-and-future-improvements).
+The current implementation assumes both location values are strings when it calls `.trim()`. It also does not perform strict integer-type validation before parsing `passengers`. These are recorded under [Known Limitations and Future Improvements](#limitations-and-future-improvements).
 
 ### `PATCH /bookings/:id/status`
 
@@ -183,12 +155,7 @@ The database flag prevents later sequential events from awarding another discoun
 
 ## Middleware
 
-| Middleware       | Applied to               | Purpose                                 |
-| ---------------- | ------------------------ | --------------------------------------- |
-| `cors`         | All routes               | Allows cross-origin requests            |
-| `express.json` | All routes               | Parses JSON request bodies              |
-| `requireAuth`  | All`/bookings` routes  | Verifies JWT and populates`req.user`  |
-| `errorHandler` | All routes, mounted last | Returns consistent JSON error responses |
+Standard request processing and Gateway JWT forwarding are documented in the [Gateway middleware contract](../gateway-service/README.md#middleware). The endpoint tables above identify this service's application authentication requirements.
 
 ## Database Tables
 
@@ -199,30 +166,7 @@ The database flag prevents later sequential events from awarding another discoun
 
 ## Running Tests
 
-Run the test runner from the repository root, not from `services/booking-service`.
-
-Prerequisites:
-
-- Customer Service running on port `3001`
-- Booking Service running on port `3002`
-- Gateway Service running on port `4000`
-- Newman installed globally with `npm install -g newman`
-
-```powershell
-Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
-.\scripts\run-booking-newman-tests.ps1
-```
-
-The runner contains four stages:
-
-| Stage               | Requests | Behaviour                                                                                                           |
-| ------------------- | -------: | ------------------------------------------------------------------------------------------------------------------- |
-| Normal booking flow |       12 | Registers a fresh user, logs in, validates booking creation and errors, retrieves bookings, and completes a booking |
-| Service-down test   |        1 | Optional; Booking Service must be stopped, and the Gateway must return`503`                                       |
-| Cab-ready event     |        2 | Optional; creates a booking, waits 190 seconds, and checks for the delayed notification                             |
-| Discount event      |       12 | Optional; uses a fresh user, completes four booking cycles, and confirms that only one discount notification exists |
-
-The normal stage always runs. The remaining stages are prompted. Restart Booking Service after the service-down stage before running either event stage. Fresh users make the normal and discount workflows repeatable without database cleanup.
+Use the booking and event workflows in the [Postman guide](../../postman/README.md#quick-start). Its collection inventory owns request counts and expected results. Cloud hosting introduces an additional [timer limitation](../../README.md#deployment-limitations).
 
 ## Service Structure
 
@@ -241,7 +185,7 @@ services/booking-service/
 |   `-- routes/
 |       `-- bookingRoutes.js        Five booking endpoints
 |-- .env.example                    Safe environment-variable template
-|-- Dockerfile                      Deployment scaffold; not complete
+|-- Dockerfile                      Cloud Run container build
 |-- package.json                    Scripts and direct dependencies
 |-- package-lock.json               Locked dependency versions
 `-- README.md                       Service documentation
@@ -267,4 +211,4 @@ services/booking-service/
 
 ## Deployment
 
-The existing `Dockerfile` is only a scaffold: dependency installation and source-copy steps are not yet configured. The service runs locally with `npm run dev`, but it is not yet ready for Docker or Google Cloud Run deployment.
+See the [deployment architecture](../../README.md#architecture), [configuration bindings](../../README.md#environment-bindings), and [build and deployment](../../README.md#build-and-deployment) for this service's connections and deployment settings.

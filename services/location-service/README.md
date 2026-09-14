@@ -2,55 +2,30 @@
 
 Manages user-owned favourite pickup locations and retrieves weather data for saved addresses. The service supports create, list, update, and delete operations, calls WeatherAPI.com through Axios, and stores the full weather response as a PostgreSQL JSONB snapshot.
 
-**Port:** `3005`
 
-**Status:** Completed and tested locally. Docker and Cloud Run deployment is pending.
 
 ---
 
 ## Quick Start
 
-From the repository root:
-
-```powershell
-cd services/location-service
-npm install
-Copy-Item .env.example .env
-# Replace every placeholder in .env before continuing.
-npm run db:test
-npm run dev
-```
-
-Expected output:
-
-```text
-location-service running on port 3005
-```
-
-Health check:
-
-```powershell
-curl.exe http://localhost:3005/health
-# { "status": "ok", "service": "location-service" }
-```
+Use the [repository local setup](../../README.md#local-setup) for installation, environment files, ports, and startup.
 
 ## Environment Variables
 
-| Variable                 | Required    | Description                                                                                                               |
-| ------------------------ | ----------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `PORT`                 | No          | Defaults to`3005`                                                                                                       |
-| `NODE_ENV`             | No          | Use`development` locally; `test` suppresses unexpected-error logging                                                  |
-| `JWT_SECRET`           | Yes         | Must match Customer Service, Gateway Service, and the other services that verify JWTs                                     |
-| `DATABASE_URL`         | Yes         | PostgreSQL connection string; the service fails at startup when it is absent                                              |
-| `DB_SSL`               | No          | Set to`true` for the current Cloud SQL connection or `false` for local PostgreSQL; omitted values behave as `false` |
-| `WEATHER_API_KEY`      | Conditional | Required by the weather endpoint; obtain a key from[WeatherAPI.com](https://www.weatherapi.com/signup.aspx)                |
-| `WEATHER_API_BASE_URL` | Conditional | Required by the weather endpoint; use`https://api.weatherapi.com/v1`                                                    |
+[Shared configuration](../../README.md#deployment-configuration) defines `PORT`, `NODE_ENV`, JWT settings, and database connection modes. Hosted values and secrets are listed in the [deployment bindings](../../README.md#environment-bindings).
+
+| Variable | Purpose |
+| --- | --- |
+| `WEATHER_API_BASE_URL` | WeatherAPI base URL; required for weather requests |
+| `WEATHER_API_KEY` | Provider credential; required for weather requests |
 
 ## Endpoints
 
+Examples use local URLs. In Cloud Run, all direct routes, including `/health`, require IAM invocation. See the [service authentication model](../../README.md#identity-and-access).
+
 Frontend and external client requests should go through the Gateway at `http://localhost:4000`. Direct Location Service routes on port `3005` are mainly for isolated service testing.
 
-### Public
+### Routes without an application JWT
 
 | Method  | Direct service route | Purpose              |
 | ------- | -------------------- | -------------------- |
@@ -197,12 +172,7 @@ Success response (`200`):
 
 ## Middleware
 
-| Middleware       | Applied to               | Purpose                                    |
-| ---------------- | ------------------------ | ------------------------------------------ |
-| `cors`         | All routes               | Allows cross-origin requests               |
-| `express.json` | All routes               | Parses JSON request bodies                 |
-| `requireAuth`  | All`/locations` routes | Verifies the JWT and populates`req.user` |
-| `errorHandler` | All routes, mounted last | Returns consistent JSON error responses    |
+Standard request processing and Gateway JWT forwarding are documented in the [Gateway middleware contract](../gateway-service/README.md#middleware). The endpoint tables above identify this service's application authentication requirements.
 
 ## Database Tables
 
@@ -256,7 +226,7 @@ services/location-service/
 |   `-- routes/
 |       `-- locationRoutes.js       Location CRUD and weather routes
 |-- .env.example                    Safe environment-variable template
-|-- Dockerfile                      Deployment scaffold; not complete
+|-- Dockerfile                      Cloud Run container build
 |-- package.json                    Scripts and direct dependencies
 |-- package-lock.json               Locked dependency versions
 `-- README.md                       Service documentation
@@ -277,4 +247,4 @@ services/location-service/
 
 ## Deployment
 
-The existing `Dockerfile` is only a scaffold: dependency installation and source-copy steps are not yet configured. Location Service runs locally with `npm run dev`, but it is not yet ready for Docker or Google Cloud Run deployment.
+See the [deployment architecture](../../README.md#architecture), [configuration bindings](../../README.md#environment-bindings), and [build and deployment](../../README.md#build-and-deployment) for this service's connections and deployment settings.

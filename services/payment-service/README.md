@@ -2,52 +2,28 @@
 
 Processes payments for user-owned cab bookings. The service retrieves a live base fare from Fare Estimation Service, applies the multipliers, stores an auditable payment record, marks the booking as completed, and consumes an available discount when used.
 
-**Port:** `3003`
 
 ---
 
 ## Quick Start
 
-From the repository root:
-
-```powershell
-cd services/payment-service
-npm install
-Copy-Item .env.example .env
-# Replace every placeholder in .env before continuing.
-npm run db:test
-npm run dev
-```
-
-Expected output:
-
-```text
-payment-service running on port 3003
-```
-
-Health check:
-
-```powershell
-curl.exe http://localhost:3003/health
-# { "status": "ok", "service": "payment-service" }
-```
+Use the [repository local setup](../../README.md#local-setup) for installation, environment files, ports, and startup.
 
 ## Environment Variables
 
-| Variable             | Required | Description                                                                                                               |
-| -------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `PORT`             | No       | Defaults to`3003`                                                                                                       |
-| `NODE_ENV`         | No       | Use`development` locally; `test` suppresses unexpected-error logging                                                  |
-| `JWT_SECRET`       | Yes      | Must match Customer Service, Gateway Service, and the other protected microservices                                       |
-| `DATABASE_URL`     | Yes      | PostgreSQL connection string; the service fails at startup when it is absent                                              |
-| `DB_SSL`           | No       | Set to`true` for the current Cloud SQL connection or `false` for local PostgreSQL; omitted values behave as `false` |
-| `FARE_SERVICE_URL` | Yes      | Direct Fare Estimation Service URL used by`POST /payments`; use `http://localhost:3004` locally                       |
+[Shared configuration](../../README.md#deployment-configuration) defines `PORT`, `NODE_ENV`, JWT settings, and database connection modes. Hosted values and secrets are listed in the [deployment bindings](../../README.md#environment-bindings).
+
+| Variable | Purpose |
+| --- | --- |
+| `FARE_SERVICE_URL` | Fare Estimation service origin used during payment processing |
 
 ## Endpoints
 
+Examples use local URLs. In Cloud Run, all direct routes, including `/health`, require IAM invocation. See the [service authentication model](../../README.md#identity-and-access).
+
 Frontend requests must go through the Gateway at `http://localhost:4000`. Direct Payment Service routes on port `3003` are intended for isolated service testing.
 
-### Public
+### Routes without an application JWT
 
 | Method  | Gateway route | Direct service route | Purpose              |
 | ------- | ------------- | -------------------- | -------------------- |
@@ -165,12 +141,7 @@ A successful `200` response contains the payment and user IDs, all fare and mult
 
 ## Middleware
 
-| Middleware       | Applied to               | Purpose                                       |
-| ---------------- | ------------------------ | --------------------------------------------- |
-| `cors`         | All routes               | Allows cross-origin requests                  |
-| `express.json` | All routes               | Parses JSON request bodies                    |
-| `requireAuth`  | Both`/payments` routes | Verifies JWT and populates`req.user`        |
-| `errorHandler` | All routes, mounted last | Returns consistent`{ "error": "..." }` JSON |
+Standard request processing and Gateway JWT forwarding are documented in the [Gateway middleware contract](../gateway-service/README.md#middleware). The endpoint tables above identify this service's application authentication requirements.
 
 ## Database Tables
 
@@ -245,7 +216,7 @@ services/payment-service/
 |   `-- routes/
 |       `-- paymentRoutes.js        Payment processing and retrieval
 |-- .env.example                    Safe environment-variable template
-|-- Dockerfile                      Deployment scaffold; not complete
+|-- Dockerfile                      Cloud Run container build
 |-- package.json                    Scripts and direct dependencies
 |-- package-lock.json               Locked dependency versions
 `-- README.md                       Service documentation
@@ -256,17 +227,16 @@ services/payment-service/
 - The service records a simulated paid transaction; it does not call a real payment provider.
 - `booking_id` is checked for presence but is not currently validated as a UUID before the database query.
 - Payment insertion, booking completion, and discount reset are separate queries rather than one database transaction.
-- Duplicate prevention uses an application-level check and is not protected by a unique database constraint during concurrent requests.
+- Duplicate prevention starts with an application-level check. Database-level protection requires a unique constraint on `payments.booking_id`. A concurrent unique violation is not explicitly mapped to `409` by this route.
 - Payment completion updates the booking directly and does not emit Booking Service's `booking.completed` event.
 - The base fare is converted from `price_in_cents`, but there is no dedicated currency field in the payment columns or calculation breakdown.
 
 ## Project Documentation
 
-- [Main repository README
-  ](../../README.md)
+- [Main repository README](../../README.md)
 
 ---
 
 ## Deployment
 
-The existing `Dockerfile` is only a scaffold: dependency installation and source-copy steps are not yet configured. Payment Service runs locally with `npm run dev`, but it is not yet ready for Docker or Google Cloud Run deployment.
+See the [deployment architecture](../../README.md#architecture), [configuration bindings](../../README.md#environment-bindings), and [build and deployment](../../README.md#build-and-deployment) for this service's connections and deployment settings.

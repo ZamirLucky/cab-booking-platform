@@ -2,53 +2,27 @@
 
 Registers customers, authenticates logins, returns account details, and manages the user notification inbox. Booking Service also calls this service to create cab-ready and discount notifications.
 
-**Port:** `3001`
 
-**Status:** Completed and tested locally. Docker and Cloud Run deployment is pending.
 
 ---
 
 ## Quick Start
 
-From the repository root:
-
-```powershell
-cd services/customer-service
-npm install
-Copy-Item .env.example .env
-# Replace every placeholder in .env before continuing.
-npm run db:test
-npm run dev
-```
-
-Expected output:
-
-```text
-customer-service running on port 3001
-```
-
-Health check:
-
-```powershell
-curl.exe http://localhost:3001/health
-# { "status": "ok", "service": "customer-service" }
-```
+Use the [repository local setup](../../README.md#local-setup) for installation, environment files, ports, and startup.
 
 ## Environment Variables
 
-| Variable         | Required | Description                                                                                                               |
-| ---------------- | -------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `PORT`         | No       | Defaults to`3001`                                                                                                       |
-| `NODE_ENV`     | No       | Use`development` locally; `test` suppresses error logging                                                             |
-| `JWT_SECRET`   | Yes      | Signs login tokens and must match Gateway Service and every microservice that verifies those tokens                       |
-| `DATABASE_URL` | Yes      | PostgreSQL connection string; the service fails at startup when it is absent                                              |
-| `DB_SSL`       | No       | Set to`true` for the current Cloud SQL connection or `false` for local PostgreSQL; omitted values behave as `false` |
+[Shared configuration](../../README.md#deployment-configuration) defines `PORT`, `NODE_ENV`, JWT settings, and database connection modes. Hosted values and secrets are listed in the [deployment bindings](../../README.md#environment-bindings).
+
+This service has no additional configuration variables.
 
 ## Endpoints
 
+Examples use local URLs. In Cloud Run, all direct routes, including `/health`, require IAM invocation. See the [service authentication model](../../README.md#identity-and-access).
+
 Frontend requests must go through the Gateway at `http://localhost:4000`. Direct Customer Service routes on port `3001` are intended for isolated service testing and internal service calls.
 
-### Public
+### Routes without an application JWT
 
 | Method   | Gateway route               | Direct service route | Purpose                    |
 | -------- | --------------------------- | -------------------- | -------------------------- |
@@ -72,7 +46,7 @@ The Gateway verifies protected requests before forwarding them. Customer Service
 | -------- | ------------- | -------------------- | ------------------------------------------ |
 | `POST` | Not exposed   | `/notifications`   | Create a notification for an existing user |
 
-Booking Service calls the internal route from its event handlers. It currently has no JWT or service credential. The Gateway does not forward it, but deployment must also restrict direct network access or add service-to-service authentication.
+Booking Service calls the internal route from its event handlers. It is not exposed through the Gateway and does not require an application JWT; hosted calls use the IAM access model linked above.
 
 ## Validation Rules
 
@@ -234,12 +208,7 @@ Success response (`201`):
 
 ## Middleware
 
-| Middleware       | Applied to                              | Purpose                                       |
-| ---------------- | --------------------------------------- | --------------------------------------------- |
-| `cors`         | All routes                              | Allows cross-origin requests                  |
-| `express.json` | All routes                              | Parses JSON request bodies                    |
-| `requireAuth`  | Account, inbox, and mark-as-read routes | Verifies JWT and populates`req.user`        |
-| `errorHandler` | All routes, mounted last                | Returns consistent`{ "error": "..." }` JSON |
+Standard request processing and Gateway JWT forwarding are documented in the [Gateway middleware contract](../gateway-service/README.md#middleware). The endpoint tables above identify this service's application authentication requirements.
 
 ## Database Tables
 
@@ -284,28 +253,9 @@ LIMIT 10;
 
 ## Running Tests
 
-Run commands from the repository root.
+Use the [Customer collection](../../postman/README.md#collections) and [Gateway workflow](../../postman/README.md#quick-start) for local API testing.
 
-### Direct service tests
-
-Prerequisites: Customer Service on port `3001` and Newman installed globally.
-
-```powershell
-newman run .\postman\cab-booking-customer-service.postman_collection.json -e .\postman\cab-booking-local.postman_environment.json
-```
-
-The collection contains 12 requests covering health, registration validation, login, JWT protection, notification creation, inbox retrieval, and mark-as-read. Before repeating it, change `testEmail` in the Postman environment to an unused address because the valid registration request expects `201`.
-
-### Gateway integration tests
-
-Prerequisites: Customer Service on port `3001`, Gateway Service on port `4000`, and Newman installed globally.
-
-```powershell
-Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
-.\scripts\run-gateway-newman-tests.ps1
-```
-
-This verifies the full Gateway forwarding flow and optionally checks that the Gateway returns `503` while Customer Service is stopped.
+For a local database connectivity check, run `npm run db:test` from this service directory.
 
 ## Service Structure
 
@@ -323,7 +273,7 @@ services/customer-service/
 |       |-- authRoutes.js           Registration, login, and account routes
 |       `-- notificationRoutes.js   Inbox and internal notification routes
 |-- .env.example                    Safe environment-variable template
-|-- Dockerfile                      Deployment scaffold; not complete
+|-- Dockerfile                      Cloud Run container build
 |-- package.json                    Scripts and direct dependencies
 |-- package-lock.json               Locked dependency versions
 `-- README.md                       Service documentation
@@ -331,7 +281,6 @@ services/customer-service/
 
 ## Known Limitations and Future Improvements
 
-- Internal `POST /notifications` is unauthenticated. Production deployment must restrict direct access or add service-to-service authentication.
 - `GET /notifications` returns the full inbox; pagination is not currently implemented.
 - Notification `type` is required but is not restricted to a fixed list of allowed values.
 
@@ -343,4 +292,4 @@ services/customer-service/
 
 ## Deployment
 
-The existing `Dockerfile` is only a scaffold: dependency installation and source-copy steps are not yet configured. Customer Service runs locally with `npm run dev`, but it is not yet ready for Docker or Google Cloud Run deployment.
+See the [deployment architecture](../../README.md#architecture), [configuration bindings](../../README.md#environment-bindings), and [build and deployment](../../README.md#build-and-deployment) for this service's connections and deployment settings.

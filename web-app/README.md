@@ -2,74 +2,17 @@
 
 Static multi-page frontend for the Cab Booking Platform, built with HTML5, Bootstrap 5, Vanilla JavaScript, and the Fetch API. It provides the browser interface for registration, login, account details, fare estimates, bookings, payments, favourite locations, weather, and notifications.
 
-All application API requests follow the required Gateway path:
-
-```text
-Browser -> web-app -> gateway-service -> microservices
-```
-
-The frontend never calls ports `3001`-`3005` directly.
-
-**Entry point:** `web-app/index.html`
-
-**Local Gateway:** `http://localhost:4000`
-
----
+Application API requests use the Gateway. The [repository architecture](../README.md#architecture) describes service communication.
 
 ## Quick Start
 
-For the complete workflow, first configure and start the Gateway and all five microservices using the [main local setup instructions](../README.md#running-locally).
-
-Local ports:
-
-| Component               |     Port |
-| ----------------------- | -------: |
-| Gateway Service         | `4000` |
-| Customer Service        | `3001` |
-| Booking Service         | `3002` |
-| Payment Service         | `3003` |
-| Fare Estimation Service | `3004` |
-| Location Service        | `3005` |
-
-The backend also requires its PostgreSQL, JWT, fare API, and weather API environment variables to be configured. Confirm the Gateway is available before opening the frontend:
-
-```powershell
-curl.exe http://localhost:4000/health
-# { "status": "ok", "service": "gateway-service" }
-```
-
-The current frontend is static and has no build step. From the repository root:
-
-```powershell
-cd web-app
-Start-Process .\index.html
-```
-
-Alternatively, open `web-app/index.html` with a modern browser. Internet access is required to load Bootstrap CSS and JavaScript from jsDelivr.
-
-`npm install` is not required for the current static application. Do not use `npm start` or `npm run dev`; both scripts currently reference a missing `server.js` file.
-
----
+Follow the [full local setup](../README.md#local-setup). Open the web server URL after the backend services are running. The frontend has no asset build step; Express serves its HTML, CSS, and JavaScript. Internet access is required for Bootstrap assets from jsDelivr.
 
 ## Frontend Configuration
 
-The active Gateway URL is defined directly in `js/config.js`:
+The server accepts `PORT` and `GATEWAY_URL` as process environment variables. It does not load a local `.env` automatically. The generated browser configuration and hosted bindings are documented in [Deployment configuration](../README.md#environment-bindings).
 
-```js
-const GATEWAY_URL = 'http://localhost:4000';
-```
-
-Every page loads `config.js` before `auth.js` and any page-specific script. All Fetch requests build their URL from this constant.
-
-| File or setting  | Current behaviour                                                          |
-| ---------------- | -------------------------------------------------------------------------- |
-| `js/config.js` | Runtime source for`GATEWAY_URL` in the browser                           |
-| `.env.example` | Documentation placeholder only; static browser JavaScript does not read it |
-| Bootstrap 5.3.0  | Loaded from the jsDelivr CDN on each page                                  |
-
-Before online deployment, `GATEWAY_URL` must be replaced or injected with the HTTPS URL of the deployed Gateway. No API keys, JWT secrets, or database credentials belong in the frontend.
-
----
+Every page loads `config.js` before authentication and page-specific scripts. The browser uses that constant for API requests. It receives no database or provider credentials.
 
 ## Pages and User Flow
 
@@ -96,32 +39,7 @@ A normal user flow is:
 
 ## Gateway API Calls
 
-These are the routes used by the current browser interface. Protected calls include `Authorization: Bearer <token>`.
-
-| Page                   | Method | Gateway route                                     | Auth   | Purpose                                            |
-| ---------------------- | ------ | ------------------------------------------------- | ------ | -------------------------------------------------- |
-| `index.html`         | POST   | `/api/customers/login`                          | None   | Authenticate and receive a JWT                     |
-| `register.html`      | POST   | `/api/customers/register`                       | None   | Create a customer account                          |
-| `dashboard.html`     | GET    | `/api/customers/account`                        | Bearer | Load the signed-in customer's details              |
-| `dashboard.html`     | GET    | `/api/fare?start_location=...&end_location=...` | Bearer | Request a fare estimate                            |
-| `bookings.html`      | POST   | `/api/bookings`                                 | Bearer | Create a booking                                   |
-| `bookings.html`      | GET    | `/api/bookings/current`                         | Bearer | Load current bookings                              |
-| `bookings.html`      | GET    | `/api/bookings/past`                            | Bearer | Load completed and cancelled bookings              |
-| `bookings.html`      | PATCH  | `/api/bookings/:id/status`                      | Bearer | Cancel a current booking from the UI               |
-| `payment.html`       | GET    | `/api/bookings/current`                         | Bearer | List bookings that can be selected for payment     |
-| `payment.html`       | GET    | `/api/payments/:bookingId`                      | Bearer | Check whether the selected booking is already paid |
-| `payment.html`       | POST   | `/api/payments`                                 | Bearer | Process payment for the selected booking           |
-| `locations.html`     | POST   | `/api/locations`                                | Bearer | Save a favourite location                          |
-| `locations.html`     | GET    | `/api/locations`                                | Bearer | Load favourite locations                           |
-| `locations.html`     | PATCH  | `/api/locations/:id`                            | Bearer | Update a favourite location                        |
-| `locations.html`     | DELETE | `/api/locations/:id`                            | Bearer | Delete a favourite location                        |
-| `locations.html`     | GET    | `/api/locations/:id/weather`                    | Bearer | Retrieve weather for a saved location              |
-| `notifications.html` | GET    | `/api/customers/notifications`                  | Bearer | Load inbox notifications                           |
-| `notifications.html` | PATCH  | `/api/customers/notifications/:id/read`         | Bearer | Mark a notification as read                        |
-
-The Gateway also exposes routes such as `GET /health` and `GET /api/bookings/:id`, but the current UI does not call them.
-
----
+The [Gateway route index](../services/gateway-service/README.md#routes) links to the authoritative service contracts. Protected browser requests include `Authorization: Bearer <token>`. Page responsibilities are listed above; the frontend has no direct database or external fare/weather API access.
 
 ## Authentication and Session Behaviour
 
@@ -188,9 +106,10 @@ web-app/
 |   |-- payment.js             Payment requests and breakdown rendering
 |   |-- locations.js           Location CRUD, weather, and rendering
 |   `-- notifications.js       Inbox loading and mark-as-read handling
-|-- .env.example               Inactive placeholder for future deployment configuration
-|-- Dockerfile                 Incomplete deployment scaffold
-|-- package.json               Currently unused server scripts and dependencies
+|-- .env.example               Environment variable reference; not loaded automatically
+|-- server.js                  HTTP server and runtime browser configuration
+|-- Dockerfile                 Cloud Run container build
+|-- package.json               Server commands and dependencies
 `-- README.md                  Frontend documentation
 ```
 
@@ -202,9 +121,9 @@ The web app has no database connection and does not call the fare or weather pro
 
 There is no automated browser test suite. Newman collections test the backend APIs separately; see the [Postman and Newman documentation](../postman/README.md).
 
-Use this local verification flow:
+Use a dedicated test account and the local web server configured in [Local Setup](../README.md#local-setup):
 
-1. Start all backend services and confirm the Gateway health response.
+1. Confirm the target web server and Gateway health responses.
 2. Open DevTools, select the Network tab, and filter by Fetch/XHR.
 3. Submit invalid forms and confirm validation prevents an API request.
 4. Register a fresh customer, log in, and confirm `cab_token` exists under Application -> Local Storage.
@@ -213,9 +132,9 @@ Use this local verification flow:
 7. Cancel one booking and confirm it moves to Past Bookings.
 8. Create another booking, pay it, confirm the JSONB calculation breakdown is displayed, and confirm the booking moves to Past Bookings as `completed`.
 9. Add, edit, request weather for, and delete a favourite location.
-10. Keep Booking Service running for about three minutes after booking creation, then confirm the `cab_ready` notification appears in the inbox.
+10. Check the inbox after booking creation for a `cab_ready` notification. Hosted delivery is subject to the [timer limitation](../README.md#deployment-limitations); record the observed result.
 11. Mark an unread notification as read and confirm its styling and button update.
-12. Confirm every application API request targets `localhost:4000`, never ports `3001`-`3005`.
+12. Confirm every application API request targets the configured Gateway origin.
 
 Requests to `cdn.jsdelivr.net` are expected because Bootstrap is a frontend asset; they are not application API calls.
 
@@ -223,15 +142,11 @@ Requests to `cdn.jsdelivr.net` are expected because Bootstrap is a frontend asse
 
 ## Known Limitations and Future Improvements
 
-- `npm start` and `npm run dev` reference a missing `server.js`; Express, dotenv, and pg in `package.json` are not used by the current static app.
-- The Dockerfile contains only TODO scaffolding and cannot currently serve the frontend.
-- `.env.example` is not loaded by browser code. Production needs a deliberate build-time or runtime method for setting `GATEWAY_URL`.
-- `GATEWAY_URL` is currently hard-coded to HTTP localhost.
 - `guardPage()` checks only whether a token exists. Only the notifications page currently logs out automatically after a `401`; other protected pages handle expired tokens inconsistently.
 - JWT storage in `localStorage` increases the impact of an XSS vulnerability. Several booking, payment, and notification views insert API values with `innerHTML`; those values should be escaped before production.
 - The booking form sets its default `datetime-local` value with `toISOString()`, which uses UTC and can display the wrong local time.
 - The browser does not validate that a booking date is in the future; the backend currently requires the field but also does not enforce a future date.
-- Payment Service changes the booking status directly to `completed` but does not emit Booking Service's `booking.completed` event. The UI payment flow therefore does not currently trigger the discount event.
+- Payment-triggered discounts follow the [Booking event limitations](../services/booking-service/README.md#limitations-and-future-improvements).
 - Fetch requests have no timeout or retry behaviour.
 - Bootstrap depends on jsDelivr being reachable.
 - There is no automated frontend test suite.
@@ -247,4 +162,4 @@ Requests to `cdn.jsdelivr.net` are expected because Bootstrap is a frontend asse
 
 ## Deployment
 
-Not yet deployed
+The [deployment architecture](../README.md#architecture) shows the web service and browser API connections. The main README also covers cloud hosting, runtime configuration, and the build process.

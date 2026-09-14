@@ -2,127 +2,37 @@
 
 The frontend-facing entry point for the Cab Booking Platform. It verifies JWTs on protected routes and forwards requests to the appropriate microservice using Axios. The frontend does not call the microservices directly.
 
-**Port:** `4000`
 
 ---
 
 ## Quick Start
 
-From the repository root:
-
-```bash
-cd services/gateway-service
-npm ci
-cp .env.example .env
-npm run dev
-```
-
-Downstream services must also be running before their forwarded routes can be used.
-
-Expected output:
-
-```text
-gateway-service running on port 4000
-```
-
-Health check:
-
-```bash
-curl http://localhost:4000/health
-# { "status": "ok", "service": "gateway-service" }
-```
-
-Use `npm start` to run without nodemon.
-
----
+Use the [repository local setup](../../README.md#local-setup) for installation, environment files, ports, and startup.
 
 ## Environment Variables
 
-| Variable                 | Required | Description                                                       |
-| ------------------------ | -------- | ----------------------------------------------------------------- |
-| `PORT`                 | No       | Gateway port; defaults to`4000`                                 |
-| `JWT_SECRET`           | Yes      | Must match Customer Service and the protected downstream services |
-| `CUSTOMER_SERVICE_URL` | Yes      | `http://localhost:3001` locally                                 |
-| `BOOKING_SERVICE_URL`  | Yes      | `http://localhost:3002` locally                                 |
-| `PAYMENT_SERVICE_URL`  | Yes      | `http://localhost:3003` locally                                 |
-| `FARE_SERVICE_URL`     | Yes      | `http://localhost:3004` locally                                 |
-| `LOCATION_SERVICE_URL` | Yes      | `http://localhost:3005` locally                                 |
+[Shared configuration](../../README.md#deployment-configuration) owns port and JWT settings. The Gateway requires `CUSTOMER_SERVICE_URL`, `BOOKING_SERVICE_URL`, `PAYMENT_SERVICE_URL`, `FARE_SERVICE_URL`, and `LOCATION_SERVICE_URL`. Their deployed values are defined by the [environment bindings](../../README.md#environment-bindings).
 
 ## Middleware
 
-| Middleware            | Applied to       | Purpose                                                          |
-| --------------------- | ---------------- | ---------------------------------------------------------------- |
-| `cors`              | All routes       | Allows requests from the browser frontend                        |
-| `express.json`      | All routes       | Parses JSON request bodies                                       |
-| `requireAuth`       | Protected routes | Verifies`Authorization: Bearer <token>`                        |
-| `forwardAuthHeader` | Protected routes | Stores the header in`req.authHeader` for downstream forwarding |
-| `errorHandler`      | Mounted last     | Returns`{ "error": "..." }` for handled application errors     |
+Express services parse JSON request bodies with `express.json()`, enable CORS, and register a four-argument error handler after routes.
 
-Protected Customer, Booking, Payment, and Location requests are verified by both the Gateway and the downstream microservice. Fare requests are protected at the Gateway only because Payment Service also calls Fare Estimation Service internally without a user token.
+The Gateway's `requireAuth` verifies the user JWT on protected routes; `forwardAuthHeader` passes it downstream. Customer, Booking, Payment, and Location verify JWTs again and enforce resource ownership. Fare requests require a JWT at the Gateway but no user token at the Fare service.
 
----
+Cloud Run IAM operates separately from application middleware. Its [service authentication contract](../../README.md#identity-and-access) also protects direct health and internal routes in the hosted environment.
 
 ## Routes
 
-### Health
+| Path group | Contract owner |
+| --- | --- |
+| `GET /health` | Gateway; returns `{ "status": "ok", "service": "gateway-service" }` |
+| `/api/customers` | [Customer endpoints](../customer-service/README.md#endpoints) |
+| `/api/bookings` | [Booking endpoints](../booking-service/README.md#endpoints) |
+| `/api/payments` | [Payment endpoints](../payment-service/README.md#endpoints) |
+| `/api/fare` | [Fare endpoints](../fare-estimation-service/README.md#endpoints) |
+| `/api/locations` | [Location endpoints](../location-service/README.md#endpoints) |
 
-| Method | Gateway path | Auth | Forwards to            |
-| ------ | ------------ | ---- | ---------------------- |
-| GET    | `/health`  | None | Handled by the Gateway |
-
-### Customer Service
-
-| Method | Gateway path                              | Auth   | Forwards to                       |
-| ------ | ----------------------------------------- | ------ | --------------------------------- |
-| POST   | `/api/customers/register`               | None   | `POST /register`                |
-| POST   | `/api/customers/login`                  | None   | `POST /login`                   |
-| GET    | `/api/customers/account`                | Bearer | `GET /account`                  |
-| GET    | `/api/customers/notifications`          | Bearer | `GET /notifications`            |
-| PATCH  | `/api/customers/notifications/:id/read` | Bearer | `PATCH /notifications/:id/read` |
-
-### Booking Service
-
-| Method | Gateway path                 | Auth   | Forwards to                    |
-| ------ | ---------------------------- | ------ | ------------------------------ |
-| POST   | `/api/bookings`            | Bearer | `POST /bookings`             |
-| GET    | `/api/bookings/current`    | Bearer | `GET /bookings/current`      |
-| GET    | `/api/bookings/past`       | Bearer | `GET /bookings/past`         |
-| GET    | `/api/bookings/:id`        | Bearer | `GET /bookings/:id`          |
-| PATCH  | `/api/bookings/:id/status` | Bearer | `PATCH /bookings/:id/status` |
-
-### Payment Service
-
-| Method | Gateway path                 | Auth   | Forwards to                  |
-| ------ | ---------------------------- | ------ | ---------------------------- |
-| POST   | `/api/payments`            | Bearer | `POST /payments`           |
-| GET    | `/api/payments/:bookingId` | Bearer | `GET /payments/:bookingId` |
-
-### Fare Estimation Service
-
-| Method | Gateway path                                      | Auth   | Forwards to                         |
-| ------ | ------------------------------------------------- | ------ | ----------------------------------- |
-| GET    | `/api/fare?start_location=...&end_location=...` | Bearer | `GET /fare` with query parameters |
-
-### Location Service
-
-| Method | Gateway path                   | Auth   | Forwards to                    |
-| ------ | ------------------------------ | ------ | ------------------------------ |
-| POST   | `/api/locations`             | Bearer | `POST /locations`            |
-| GET    | `/api/locations`             | Bearer | `GET /locations`             |
-| PATCH  | `/api/locations/:id`         | Bearer | `PATCH /locations/:id`       |
-| DELETE | `/api/locations/:id`         | Bearer | `DELETE /locations/:id`      |
-| GET    | `/api/locations/:id/weather` | Bearer | `GET /locations/:id/weather` |
-
-Request bodies and JSON responses are passed between the client and the selected service. See each service README for its request fields and response formats.
-
-### Authenticated Request Example
-
-```bash
-curl http://localhost:4000/api/bookings/current \
-  -H "Authorization: Bearer <token>"
-```
-
----
+Each contract lists Gateway and direct-service paths, HTTP methods, authentication, and examples. The Gateway passes request bodies and downstream responses through; internal notification creation is not forwarded.
 
 ## Error Handling
 
@@ -152,6 +62,9 @@ src/
 │   ├── paymentRoutes.js      /api/payments/*
 │   ├── fareRoutes.js         /api/fare
 │   └── locationRoutes.js     /api/locations/*
+├── utils/
+│   ├── cloudRunAuth.js        Cloud Run identity tokens
+│   └── configureCloudRunAxios.js  Outbound authentication interceptor
 └── index.js                  Express setup and route mounting
 ```
 
@@ -159,30 +72,7 @@ src/
 
 ## Testing
 
-The Gateway Newman workflow covers customer forwarding, Gateway-level authentication, and the `503` response when Customer Service is unavailable.
-
-Prerequisites:
-
-- Gateway Service on port `4000`
-- Customer Service on port `3001`
-- Newman installed globally
-
-Run from the repository root:
-
-```powershell
-Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
-.\scripts\run-gateway-newman-tests.ps1
-```
-
-Booking routes are covered by:
-
-```powershell
-.\scripts\run-booking-newman-tests.ps1
-```
-
-See the [Postman documentation](../../postman/README.md) for collection details and expected results.
-
----
+[Postman and Newman](../../postman/README.md) describes the local Gateway and Booking workflows, prerequisites, and expected results.
 
 ## Current Development Limitations
 
@@ -195,9 +85,7 @@ See the [Postman documentation](../../postman/README.md) for collection details 
 
 ## Deployment
 
-The Dockerfile is currently a placeholder. Google Cloud Run deployment and production CORS configuration are not yet complete.
-
----
+See [Deployment](../../README.md#deployment) for the Gateway's role in the cloud architecture, internal service authentication, and container build process.
 
 ## Documentation and Sources
 

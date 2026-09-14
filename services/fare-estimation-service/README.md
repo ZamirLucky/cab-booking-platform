@@ -2,51 +2,31 @@
 
 Validates pickup and drop-off locations, calls the RapidAPI Taxi Fare Calculator, and returns the provider response under a `fare` property. Payment Service uses this response as the base for its payment calculation.
 
-**Port:** `3004`
 
 ---
 
 ## Quick Start
 
-From the repository root:
-
-```powershell
-cd services/fare-estimation-service
-npm install
-Copy-Item .env.example .env
-# Replace every FARE_API_* placeholder with values from RapidAPI.
-npm run dev
-```
-
-Expected output:
-
-```text
-fare-estimation-service running on port 3004
-```
-
-Health check:
-
-```powershell
-curl.exe http://localhost:3004/health
-# { "status": "ok", "service": "fare-estimation-service" }
-```
+Use the [repository local setup](../../README.md#local-setup) for installation, environment files, ports, and startup.
 
 ## Environment Variables
 
-| Variable                | Required | Description                                                           |
-| ----------------------- | -------- | --------------------------------------------------------------------- |
-| `PORT`                | No       | Defaults to`3004`                                                   |
-| `NODE_ENV`            | No       | Use`development` locally; `test` suppresses unexpected-error logs |
-| `FARE_API_URL`        | Yes      | Full Taxi Fare Calculator endpoint URL from RapidAPI                  |
-| `FARE_API_HOST`       | Yes      | RapidAPI host header for the Taxi Fare Calculator                     |
-| `FARE_API_KEY`        | Yes      | RapidAPI key                                                          |
-| `FARE_API_TIMEOUT_MS` | No       | Request timeout in milliseconds; defaults to`10000`                 |
+[Shared configuration](../../README.md#deployment-configuration) defines `PORT`, `NODE_ENV`, JWT settings, and database connection modes. Hosted values and secrets are listed in the [deployment bindings](../../README.md#environment-bindings).
+
+| Variable | Purpose |
+| --- | --- |
+| `FARE_API_URL` | Full subscribed Taxi Fare Calculator endpoint |
+| `FARE_API_HOST` | Provider's RapidAPI host header |
+| `FARE_API_KEY` | Provider credential |
+| `FARE_API_TIMEOUT_MS` | Request timeout in milliseconds; defaults to `10000` |
 
 ## Endpoints
 
+Examples use local URLs. In Cloud Run, all direct routes, including `/health`, require IAM invocation. See the [service authentication model](../../README.md#identity-and-access).
+
 Frontend requests must go through the Gateway at `http://localhost:4000`. Payment Service calls Fare Estimation Service directly through its configured `FARE_SERVICE_URL`.
 
-### Public
+### Routes without an application JWT
 
 | Method  | Direct service route | Purpose              |
 | ------- | -------------------- | -------------------- |
@@ -56,7 +36,7 @@ Frontend requests must go through the Gateway at `http://localhost:4000`. Paymen
 
 | Method  | Gateway route | Direct service route | Authentication                            | Purpose                     |
 | ------- | ------------- | -------------------- | ----------------------------------------- | --------------------------- |
-| `GET` | `/api/fare` | `/fare`            | Gateway: Bearer token; direct route: none | Return a live fare estimate |
+| `GET` | `/api/fare` | `/fare`            | Gateway: JWT; hosted direct route: IAM | Return a live fare estimate |
 
 The Gateway verifies the JWT before forwarding `GET /api/fare`. The direct `/fare` route has no `requireAuth` middleware so Payment Service can call it internally without a user token.
 
@@ -114,13 +94,7 @@ Configuration error (`500`):
 
 ## Middleware
 
-| Middleware       | Applied to               | Purpose                                 |
-| ---------------- | ------------------------ | --------------------------------------- |
-| `cors`         | All routes               | Allows cross-origin requests            |
-| `express.json` | All routes               | Parses JSON request bodies              |
-| `errorHandler` | All routes, mounted last | Returns consistent JSON error responses |
-
-Fare Estimation Service does not use `requireAuth`. Authentication for frontend requests is applied by the Gateway.
+Standard request processing and Gateway JWT forwarding are documented in the [Gateway middleware contract](../gateway-service/README.md#middleware). The endpoint tables above identify this service's application authentication requirements.
 
 ## No Database
 
@@ -154,7 +128,7 @@ services/fare-estimation-service/
 |   `-- routes/
 |       `-- fareRoutes.js           Validation and RapidAPI request
 |-- .env.example                    Safe environment-variable template
-|-- Dockerfile                      Deployment scaffold; not complete
+|-- Dockerfile                      Cloud Run container build
 |-- package.json                    Scripts and direct dependencies
 |-- package-lock.json               Locked dependency versions
 `-- README.md                       Service documentation
@@ -165,7 +139,6 @@ services/fare-estimation-service/
 - Every estimate uses the external API; there is no cache, retry, or fallback fare.
 - RapidAPI availability, latency, and usage limits can affect fare estimation and payment processing.
 - Location validation only checks for non-empty values; addresses are not verified or geocoded locally.
-- Direct `/fare` access is unauthenticated. Production deployment should restrict ingress or add service-to-service authentication.
 - The response contract follows the external provider, so provider changes may require updates in Fare Estimation Service and Payment Service.
 - `pg` is installed but currently unused because this service has no database connection.
 
@@ -178,4 +151,4 @@ services/fare-estimation-service/
 
 ## Deployment
 
-The existing `Dockerfile` is only a scaffold: dependency installation and source-copy steps are not yet configured. Fare Estimation Service runs locally with `npm run dev`, but it is not yet ready for Docker or Google Cloud Run deployment.
+See the [deployment architecture](../../README.md#architecture), [configuration bindings](../../README.md#environment-bindings), and [build and deployment](../../README.md#build-and-deployment) for this service's connections and deployment settings.
