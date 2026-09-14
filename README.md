@@ -13,22 +13,42 @@ A microservices-based cab booking application. Users can create an account, book
 
 ## Architecture
 
-```text
-web-app
-   |
-   v
-gateway-service
-   |-- customer-service
-   |-- booking-service ----> customer-service (event notifications)
-   |-- payment-service ----> fare-estimation-service
-   |-- fare-estimation-service ----> RapidAPI Taxi Fare Calculator
-   `-- location-service ----------> WeatherAPI.com
+```mermaid
+flowchart TD
+    browser["Browser"]
+    webApp["Public web app"]
+    apiGateway["Public gateway"]
+    bookingService["Private booking service"]
+    paymentService["Private payment service"]
+    customerService["Private customer service"]
+    fareService["Private fare service"]
+    locationService["Private location service"]
+    postgres[("Cloud SQL PostgreSQL")]
+    fareApi["RapidAPI"]
+    weatherApi["WeatherAPI.com"]
 
-customer-service, booking-service, payment-service, location-service
-   `------------------------------------> Google Cloud SQL for PostgreSQL
+    browser --> webApp
+    webApp --> apiGateway
+
+    apiGateway --> bookingService
+    apiGateway --> paymentService
+    apiGateway --> customerService
+    apiGateway --> fareService
+    apiGateway --> locationService
+
+    bookingService --> customerService
+    paymentService --> fareService
+
+    customerService --> postgres
+    bookingService --> postgres
+    paymentService --> postgres
+    locationService --> postgres
+
+    fareService --> fareApi
+    locationService --> weatherApi
 ```
 
-The Gateway verifies every protected client request. Customer, Booking, Payment, and Location services verify the JWT again; Fare Estimation remains unauthenticated at service level so Payment Service can call it internally. Those four stateful services share the PostgreSQL database.
+The web app runs in the browser and sends API requests directly to the Gateway. The web server serves the frontend files.
 
 ## Components
 
@@ -40,15 +60,13 @@ The Gateway verifies every protected client request. Customer, Booking, Payment,
 | [Payment Service](services/payment-service/README.md)                 |       3003 | Fare multipliers, payments, and stored calculation breakdowns |
 | [Fare Estimation Service](services/fare-estimation-service/README.md) |       3004 | External fare estimates                                       |
 | [Location Service](services/location-service/README.md)               |       3005 | Favourite locations and weather forecasts                     |
-| [Web App](web-app/README.md)                                          |     Static | HTML, Bootstrap, Vanilla JavaScript, and Fetch API frontend   |
-
-Each component README is the source of truth for its routes, environment variables, request examples, validation rules, and current limitations.
+| [Web App](web-app/README.md)                                          |       8080 | Displays the user interface and handles browser interactions  |
 
 ## Technology
 
 | Area                    | Technology                                          |
 | ----------------------- | --------------------------------------------------- |
-| Runtime and packages    | Node.js 20, npm                                     |
+| Runtime and packages    | Node.js, npm                                        |
 | Backend API             | Express.js, Axios,`cors`, `dotenv`              |
 | Authentication          | `jsonwebtoken` (JWT), `bcrypt`                  |
 | Database                | PostgreSQL,`pg`, JSONB, Google Cloud SQL          |
@@ -57,85 +75,157 @@ Each component README is the source of truth for its routes, environment variabl
 | Development tooling     | `nodemon`                                         |
 | External APIs           | RapidAPI Taxi Fare Calculator, WeatherAPI.com       |
 | Testing                 | Postman, Newman, PowerShell runner scripts          |
-| Planned deployment      | Docker, Google Artifact Registry, Google Cloud Run  |
+
+## Deployment
+
+Seven Docker containers run on Google Cloud Run with a shared Cloud SQL PostgreSQL database.
+
+### Deployment technology
+
+| Technology        | Purpose                                          |
+| ----------------- | ------------------------------------------------ |
+| Docker            | Container packaging                              |
+| Cloud Run         | Service hosting                                  |
+| Cloud Build       | Container image builds                           |
+| Artifact Registry | Image storage                                    |
+| Cloud SQL         | PostgreSQL hosting                               |
+| Secret Manager    | Credentials and API keys                         |
+| IAM               | Cloud resource access and service authentication |
+
+### Hosting configuration
+
+| Setting             | Value                                            |
+| ------------------- | ------------------------------------------------ |
+| Region              | `europe-west10`                                |
+| Cloud Run           | First generation; 1 vCPU, 256 MiB per service    |
+| Scaling             | 0–1 instances per service                       |
+| Requests            | Concurrency 20; timeout 60 seconds; port`8080` |
+| Database            | PostgreSQL 18.x, Cloud SQL Enterprise            |
+| Database capacity   | 1 vCPU, 3.75 GiB memory, 60 GB SSD, single zone  |
+| Database protection | Deletion protection enabled                      |
+
+### Build and deployment
+
+[Cloud Run source deployment](https://cloud.google.com/run/docs/deploying-source-code) uses `gcloud run deploy --source` and each service's Dockerfile. Cloud Build produces the images; Artifact Registry stores them.
+
+The `cab-booking-web` service is built from `web-app/`. Backend services are built from `services/<service-name>/`. Docker Compose is not used.
+
+### Deployment configuration
+
+Cloud Run supplies `PORT`; all services use `NODE_ENV=production`. Service addresses and credentials are configured outside the source code.
+
+#### Database connection modes
+
+| Variable                     | Purpose                                                            |
+| ---------------------------- | ------------------------------------------------------------------ |
+| `INSTANCE_CONNECTION_NAME` | Cloud SQL Unix socket connection                                   |
+| `DB_NAME`, `DB_USER`     | Database name and login                                            |
+| `DB_PASSWORD`              | Database password from Secret Manager                              |
+| `DATABASE_URL`             | Direct connection when socket mode is absent                       |
+| `DB_SSL`                   | Direct-mode TLS when`true`; certificate verification is disabled |
+
+Socket mode takes precedence over `DATABASE_URL`. Each client uses a five-connection pool with a 30-second idle timeout. Cloud Run exposes the socket through its [Cloud SQL integration](https://cloud.google.com/sql/docs/postgres/connect-run).
+
+#### Environment bindings
+
+| Service         | Variables                                                                                                                  |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| Gateway         | `CUSTOMER_SERVICE_URL`, `BOOKING_SERVICE_URL`, `PAYMENT_SERVICE_URL`, `FARE_SERVICE_URL`, `LOCATION_SERVICE_URL` |
+| Booking         | `CUSTOMER_SERVICE_URL`                                                                                                   |
+| Payment         | `FARE_SERVICE_URL`                                                                                                       |
+| Fare Estimation | `FARE_API_URL`, `FARE_API_HOST`, `FARE_API_TIMEOUT_MS`                                                               |
+| Location        | `WEATHER_API_BASE_URL`                                                                                                   |
+| Web             | `GATEWAY_URL`                                                                                                            |
+
+Service URL variables point to Cloud Run HTTPS endpoints. The web server exposes `GATEWAY_URL` through a generated `/js/config.js` response with caching disabled.
+
+#### Secret bindings
+
+| Variable            | Services                                      |
+| ------------------- | --------------------------------------------- |
+| `DB_PASSWORD`     | Customer, Booking, Payment, Location          |
+| `JWT_SECRET`      | Gateway, Customer, Booking, Payment, Location |
+| `FARE_API_KEY`    | Fare Estimation                               |
+| `WEATHER_API_KEY` | Location                                      |
+
+[Secret Manager values](https://cloud.google.com/run/docs/configuring/services/secrets) are injected as environment variables at startup.
+
+### Identity and access
+
+Web and Gateway are public; backend services require Cloud Run IAM authentication. Protected API routes also require a user JWT.
+
+### Deployment limitations
+
+- In-memory notification timers can be lost on restart or delayed by CPU throttling.
+- The shared runtime identity grants broader permissions than individual services need.
+- Single-zone SQL has no regional failover; low instance limits restrict throughput.
+- Dockerfiles use Node 20, but the locked `google-auth-library@11.0.2` in Gateway, Booking, and Payment requires Node 22 or later.
+- Infrastructure and database migrations are not automated in the repository.
 
 ## Local Setup
 
-### Prerequisites
+Use Node.js 22 or later for the locked Google authentication dependency. The container/runtime mismatch is documented in [deployment limitations](#deployment-limitations).
 
-- Node.js 20 and npm
-- Access to the project's PostgreSQL schema in Google Cloud SQL or a compatible local database
-- RapidAPI Taxi Fare Calculator credentials
-- A WeatherAPI.com API key
-- Newman, if you want to run the automated API workflows
+Prerequisites are npm, access to the application PostgreSQL schema, the subscribed fare API, and WeatherAPI.com credentials.
 
-### 1. Configure the services
+### Configuration
 
-Copy each service's `.env.example` to `.env`, then replace every placeholder. Follow the linked component READMEs for the exact settings.
+Copy each backend service's `.env.example` to `.env`. 
 
-Important cross-service rules:
+### Installation
 
-- Use the same `JWT_SECRET` in Gateway, Customer, Booking, Payment, and Location services.
-- Customer, Booking, Payment, and Location services require the PostgreSQL connection settings.
-- Booking Service needs the Customer Service URL.
-- Payment Service needs the Fare Estimation Service URL.
-- Fare Estimation and Location services require their external API settings.
-
-### 2. Install dependencies
-
-From the repository root in PowerShell the following as it simply saves you from entering each service directory and running `npm install` six times:
+From the repository root in PowerShell:
 
 ```powershell
 Get-ChildItem .\services -Directory | ForEach-Object {
-  npm.cmd --prefix $_.FullName install
+  npm.cmd --prefix $_.FullName ci
+  if ($LASTEXITCODE -ne 0) { throw "Dependency installation failed." }
 }
+npm.cmd --prefix .\web-app ci
 ```
 
-### 3. Start the backend
+### Startup
 
-Run one command per terminal. Start the Gateway after the downstream services.
+Run each command in a separate terminal. 
 
 ```powershell
-npm.cmd --prefix .\services\customer-service run dev
-npm.cmd --prefix .\services\booking-service run dev
-npm.cmd --prefix .\services\fare-estimation-service run dev
-npm.cmd --prefix .\services\payment-service run dev
-npm.cmd --prefix .\services\location-service run dev
-npm.cmd --prefix .\services\gateway-service run dev
+cd services/customer-service
+npm run dev
 ```
 
-Verify the entry point:
+Repeat from the repository root for `booking-service`, `fare-estimation-service`, `payment-service`, `location-service`, and `gateway-service`.
+
+Start the frontend from the repository root in another terminal:
+
+```powershell
+$env:GATEWAY_URL = "http://localhost:4000"
+npm.cmd --prefix .\web-app start
+```
+
+Open `http://localhost:8080`
+
+### Health
 
 ```powershell
 Invoke-RestMethod http://localhost:4000/health
+Invoke-RestMethod http://localhost:8080/health
 ```
 
-### 4. Open the frontend
-
-Open `web-app/index.html` in a browser. Its current local configuration sends all API requests to `http://localhost:4000`.
-
-All six backend processes are required for the complete browser flow. The current web app is static; its `npm` start scripts and Dockerfile are not yet operational.
+These confirm the Gateway and web HTTP processes respond.
 
 ## Testing
 
-Automated Newman coverage currently includes Customer/Gateway forwarding, Booking Service, Customer- and Booking-service failure handling, and the cab-ready and discount event flows.
-
-```powershell
-npm.cmd install -g newman
-Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
-
-.\scripts\run-gateway-newman-tests.ps1
-.\scripts\run-booking-newman-tests.ps1
-```
-
-Fare, Payment, and Location checks are currently documented as manual workflows in their component READMEs. See the [Postman and Newman guide](postman/README.md) for prerequisites, collection coverage, expected results, and troubleshooting.
+[Postman and Newman](postman/README.md) describes API collection coverage and local test execution. [Browser acceptance](web-app/README.md#manual-browser-testing) describes the UI checks.
 
 ## Project Documentation
 
-- This README owns the repository overview, architecture summary, status, and full-system startup flow.
-- Each [component README](#components) owns that component's configuration, API contract, examples, and limitations.
-- [Web App documentation](web-app/README.md) owns the page flow, browser configuration, validation, and manual UI checks.
-- [Postman documentation](postman/README.md) owns the collection inventory and automated test instructions.
+| Document                                   | Content                                                                               |
+| ------------------------------------------ | ------------------------------------------------------------------------------------- |
+| This README                                | Architecture, deployment, component directory, local setup                            |
+| Component READMEs                          | API contracts, validation, persistence responsibilities, service-specific limitations |
+| [Web App](web-app/README.md)                | Browser pages, session behavior, UI validation and acceptance                         |
+| [Postman](postman/README.md)                | API collections and test execution                                                    |
+| [Container documentation](docker/README.md) | Container source locations and Compose status                                         |
 
 ## Screenshots
 

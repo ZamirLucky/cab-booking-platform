@@ -1,15 +1,5 @@
-# docker/
+# Container documentation
 
-Docker Compose configuration for local development.
+Each component's Dockerfile is the build definition for its Cloud Run service. See the [deployment architecture](../README.md#architecture) for service connections, and [build and deployment](../README.md#build-and-deployment) for source directories and the container build process.
 
-`docker-compose.placeholder.yml` is a placeholder — complete it during the deployment phase.
-
-When complete it will orchestrate:
-- gateway-service
-- customer-service
-- booking-service
-- payment-service
-- fare-estimation-service
-- location-service
-- web-app
-- (Cloud SQL is used in production; a local postgres container may be used for dev)
+`docker-compose.placeholder.yml` is unused, incomplete local scaffolding. Its commented port mappings are historical and are not an executable deployment configuration. Docker Compose is not used by the deployed application.
